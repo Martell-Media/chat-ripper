@@ -1,4 +1,7 @@
-# Generate Unit Tests
+---
+description: Generate focused pytest unit tests for code
+argument-hint: [file path or functionality]
+---
 
 ANALYZE the code structure and key behaviors that need testing.
 CREATE focused pytest unit tests for critical functionality.
@@ -20,7 +23,7 @@ $ARGUMENTS
    ```python
    import pytest
    from unittest.mock import Mock, patch
-   
+
    def test_<function>_<behavior>():
        # Given: Setup
        # When: Action
@@ -42,11 +45,11 @@ async def test_analyze_node_extracts_key_info():
         nodes={},
         metadata={}
     )
-    
+
     # When
     node = AnalyzeNode()
     result = await node.process(context)
-    
+
     # Then
     assert result.nodes["AnalyzeNode"]["priority"] == "high"
 ```

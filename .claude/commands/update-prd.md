@@ -1,4 +1,7 @@
-# Update Product Requirements Document
+---
+description: Update PRD based on WBS changes and project learnings
+argument-hint: [changes or context]
+---
 
 READ the current PRD from `docs/core/prd.md`.
 ANALYZE the WBS change history in `docs/core/wbs.md`.

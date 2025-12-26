@@ -1,4 +1,7 @@
-# Generate Feature Spec
+---
+description: Generate implementation spec for a feature
+argument-hint: [feature name]
+---
 
 Create an implementation spec for: $ARGUMENTS
 

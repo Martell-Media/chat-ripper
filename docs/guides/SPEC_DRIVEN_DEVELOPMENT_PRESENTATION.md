@@ -1,14 +1,14 @@
 # Spec-Driven Development with GenAI Launchpad
 
 **Note:** This presentation uses shorthand command names for readability. The actual command syntax is:
-- `/project_charter` = `/01_pre_dev:01_generate_project_charter`
-- `/prd` = `/01_pre_dev:02_generate_prd`
-- `/architecture_design` = `/01_pre_dev:03_generate_architecture_design`
-- `/wbs` = `/01_pre_dev:04_generate_wbs`
-- `/task_spec` = `/02_dev:generate_task_spec`
-- `/update_prd` = `/02_dev:update_prd`
-- `/update_wbs` = `/02_dev:update_wbs`
-- `/update_add` = `/03_post_dev:update_add`
+- `/project_charter` = `/generate-charter`
+- `/prd` = `/generate-prd`
+- `/architecture_design` = `/generate-architecture`
+- `/wbs` = `/generate-wbs`
+- `/task_spec` = `/generate-task-spec`
+- `/update_prd` = `/update-prd`
+- `/update_wbs` = `/update-wbs`
+- `/update_add` = `/update-architecture`
 
 See [COMMANDS.md](../../.claude/COMMANDS.md) for the complete command reference.
 

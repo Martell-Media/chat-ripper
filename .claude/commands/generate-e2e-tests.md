@@ -1,4 +1,7 @@
-# Generate End-to-End Tests
+---
+description: Generate comprehensive end-to-end tests for workflows/features
+argument-hint: [workflow or feature name]
+---
 
 READ the workflow or feature specification provided.
 UNDERSTAND the complete user journey and system interactions.
@@ -47,24 +50,24 @@ async def test_workflow_complete_flow():
         "user_input": "Analyze this text",
         "metadata": {"priority": "high"}
     }
-    
+
     # 2. Submit to API
     response = await client.post("/events/", json=test_event)
     assert response.status_code == 202
-    
+
     # 3. Wait for Celery task completion
     task_id = response.json()["task_id"]
     result = await wait_for_task_completion(task_id)
-    
+
     # 4. Verify database state
     event = await get_event_from_db(event_id)
     assert event.task_context is not None
     assert event.task_context["nodes"]["AnalyzeNode"]["status"] == "completed"
-    
+
     # 5. Verify workflow routing
     assert "RouterNode" in event.task_context["nodes"]
     assert event.task_context["nodes"]["RouterNode"]["selected"] == "HighPriorityHandler"
-    
+
     # 6. Verify final output
     final_result = event.task_context["nodes"]["ResponseNode"]
     assert final_result["message"] == expected_message

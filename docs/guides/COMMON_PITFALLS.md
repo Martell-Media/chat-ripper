@@ -40,7 +40,7 @@ Anti-patterns and mistakes to avoid when coding with AI.
 **Example:**
 ```
 ❌ Bad: "Add user authentication"
-✅ Good: Run `/02_dev:generate_task_spec` first, then implement
+✅ Good: Run `/generate-task-spec` first, then implement
 ```
 
 **Why it fails:**
@@ -51,7 +51,7 @@ Anti-patterns and mistakes to avoid when coding with AI.
 
 **Fix:**
 - **Always create spec before implementation**
-- Use `/02_dev:generate_task_spec`
+- Use `/generate-task-spec`
 - Define data models, interfaces, and edge cases
 - Get spec reviewed before coding
 
@@ -97,7 +97,7 @@ Anti-patterns and mistakes to avoid when coding with AI.
 
 **Fix:**
 - **Write tests before or with implementation (TDD)**
-- Use `/02_dev:generate_unit_tests`
+- Use `/generate-unit-tests`
 - Run tests immediately: `uv run pytest tests/ -v`
 - Test edge cases manually if needed
 
@@ -120,8 +120,8 @@ Anti-patterns and mistakes to avoid when coding with AI.
 
 **Fix:**
 - Update docs in same commit as code
-- Use `/02_dev:update_prd` when requirements change
-- Use `/02_dev:update_wbs` after completing tasks
+- Use `/update-prd` when requirements change
+- Use `/update-wbs` after completing tasks
 - Move specs from `docs/specs/` to `docs/features/` after completion
 
 **Detection:**
@@ -172,10 +172,10 @@ Anti-patterns and mistakes to avoid when coding with AI.
 
 **Fix:**
 - **Follow the pre-dev workflow:**
-  1. `/01_pre_dev:01_generate_project_charter`
-  2. `/01_pre_dev:02_generate_prd`
-  3. `/01_pre_dev:03_generate_architecture_design`
-  4. `/01_pre_dev:04_generate_wbs`
+  1. `/generate-charter`
+  2. `/generate-prd`
+  3. `/generate-architecture`
+  4. `/generate-wbs`
 - Invest 20% of time in planning saves 80% of rework
 
 **Detection:**

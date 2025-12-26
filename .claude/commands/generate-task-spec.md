@@ -1,4 +1,7 @@
-# Generate Engineering Specification
+---
+description: Generate engineering specification with clarifying questions
+argument-hint: [task or feature description]
+---
 
 READ the spec template in `docs/templates/specs_template.md`.
 READ the project architecture in `docs/core/add.md` (if it exists) to guide your implementation plan and ensure it aligns with the overall project structure.

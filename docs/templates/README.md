@@ -19,7 +19,7 @@ Complete structure for feature specifications:
 - **Open Questions:** Unresolved decisions
 
 **Use when:**
-- Running `/02_dev:generate_task_spec`
+- Running `/generate-task-spec`
 - Manually creating feature specifications
 - Need consistent spec structure
 
@@ -45,7 +45,7 @@ Comprehensive prompt engineering structure:
 - **Task Input:** Runtime data and validation guardrails
 
 **Use when:**
-- Running `/02_dev:generate_prompt`
+- Running `/generate-prompt`
 - Building LLM-powered features
 - Need structured prompt design
 

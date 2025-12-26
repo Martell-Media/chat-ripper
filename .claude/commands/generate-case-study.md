@@ -1,4 +1,7 @@
-# Generate Case Study
+---
+description: Generate case study from completed project
+argument-hint: [project name]
+---
 
 ANALYZE the completed project implementation and outcomes.
 EXTRACT key learnings, challenges overcome, and value delivered.

@@ -18,7 +18,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 1: Generate Project Charter
 
-**Command:** `/01_pre_dev:01_generate_project_charter`
+**Command:** `/generate-charter`
 
 **Purpose:** Establish business vision, objectives, and success criteria before any technical work.
 
@@ -46,7 +46,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 2: Generate Product Requirements Document (PRD)
 
-**Command:** `/01_pre_dev:02_generate_prd`
+**Command:** `/generate-prd`
 
 **Purpose:** Transform business objectives into detailed, actionable product requirements.
 
@@ -76,7 +76,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 3: Generate Architecture Design Document (ADD)
 
-**Command:** `/01_pre_dev:03_generate_architecture_design`
+**Command:** `/generate-architecture`
 
 **Purpose:** Design the system architecture that will fulfill the product requirements.
 
@@ -105,7 +105,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 4: Generate Work Breakdown Structure (WBS)
 
-**Command:** `/01_pre_dev:04_generate_wbs`
+**Command:** `/generate-wbs`
 
 **Purpose:** Break down the architecture into concrete, implementable tasks.
 
@@ -133,7 +133,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 5: Generate Development Environment Guide
 
-**Command:** `/01_pre_dev:05_generate_dev_environment_guide`
+**Command:** `/generate-dev-env`
 
 **Purpose:** Document setup instructions for development, testing, and deployment environments.
 
@@ -164,7 +164,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 6: Generate Task Specification
 
-**Command:** `/02_dev:generate_task_spec`
+**Command:** `/generate-task-spec`
 
 **Purpose:** Create detailed implementation specs for individual features before coding.
 
@@ -194,7 +194,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 7: Generate Unit Tests
 
-**Command:** `/02_dev:generate_unit_tests`
+**Command:** `/generate-unit-tests`
 
 **Purpose:** Create unit tests for isolated components before or during implementation.
 
@@ -224,7 +224,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 8: Generate End-to-End Tests
 
-**Command:** `/02_dev:generate_e2e_tests`
+**Command:** `/generate-e2e-tests`
 
 **Purpose:** Create integration tests that verify complete workflows.
 
@@ -247,7 +247,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 9: Generate LLM Prompt
 
-**Command:** `/02_dev:generate_prompt`
+**Command:** `/generate-prompt`
 
 **Purpose:** Create structured, production-ready prompts for LLM integrations.
 
@@ -275,7 +275,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 10: Update PRD
 
-**Command:** `/02_dev:update_prd`
+**Command:** `/update-prd`
 
 **Purpose:** Keep product requirements in sync with implementation reality.
 
@@ -298,7 +298,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 11: Update WBS
 
-**Command:** `/02_dev:update_wbs`
+**Command:** `/update-wbs`
 
 **Purpose:** Track task completion, complexity changes, and timeline adjustments.
 
@@ -325,7 +325,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 12: Update Architecture Design Document (ADD)
 
-**Command:** `/03_post_dev:update_add`
+**Command:** `/update-architecture`
 
 **Purpose:** Document architectural decisions and changes made during implementation.
 
@@ -349,7 +349,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 13: Update Project Charter
 
-**Command:** `/03_post_dev:update_project_charter`
+**Command:** `/update-charter`
 
 **Purpose:** Document business outcomes, lessons learned, and strategic insights.
 
@@ -373,7 +373,7 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ### Step 14: Generate Case Study
 
-**Command:** `/03_post_dev:generate_case_study`
+**Command:** `/generate-case-study`
 
 **Purpose:** Create a comprehensive project retrospective and knowledge artifact.
 
@@ -403,66 +403,66 @@ Each phase has dedicated Claude Code commands to guide you through conversations
 
 ```bash
 # Phase 1: Foundation (Pre-Development)
-/01_pre_dev:01_generate_project_charter    # Business vision
-/01_pre_dev:02_generate_prd                # Product requirements
-/01_pre_dev:03_generate_architecture_design # System design
-/01_pre_dev:04_generate_wbs                # Task breakdown
-/01_pre_dev:05_generate_dev_environment_guide # Setup guide
+/generate-charter    # Business vision
+/generate-prd        # Product requirements
+/generate-architecture # System design
+/generate-wbs        # Task breakdown
+/generate-dev-env    # Setup guide
 
 # Phase 2: Implementation (Development)
 # For each task in WBS:
-/02_dev:generate_task_spec                 # Feature spec
-/02_dev:generate_unit_tests                # Tests (TDD)
+/generate-task-spec  # Feature spec
+/generate-unit-tests # Tests (TDD)
 # ... write code ...
-/02_dev:generate_e2e_tests                 # Integration tests
+/generate-e2e-tests  # Integration tests
 
 # Keep docs in sync:
-/02_dev:update_prd                         # When requirements change
-/02_dev:update_wbs                         # After completing tasks
+/update-prd          # When requirements change
+/update-wbs          # After completing tasks
 
 # Phase 3: Completion (Post-Development)
-/03_post_dev:update_add                    # Architecture changes
-/03_post_dev:update_project_charter        # Business outcomes
-/03_post_dev:generate_case_study           # Project retrospective
+/update-architecture # Architecture changes
+/update-charter      # Business outcomes
+/generate-case-study # Project retrospective
 ```
 
 ### Adding a Feature to Existing Project
 
 ```bash
 # 1. Spec the feature
-/02_dev:generate_task_spec
+/generate-task-spec
 
 # 2. Write tests first (TDD)
-/02_dev:generate_unit_tests
+/generate-unit-tests
 
 # 3. Implement the feature
 # (write code following the spec)
 
 # 4. Integration tests
-/02_dev:generate_e2e_tests
+/generate-e2e-tests
 
 # 5. Update tracking
-/02_dev:update_wbs
+/update-wbs
 ```
 
 ### Building AI Features
 
 ```bash
 # 1. Spec the feature
-/02_dev:generate_task_spec
+/generate-task-spec
 
 # 2. Design the prompt
-/02_dev:generate_prompt
+/generate-prompt
 
 # 3. Tests for LLM behavior
-/02_dev:generate_unit_tests  # Mock LLM responses
+/generate-unit-tests  # Mock LLM responses
 # Create evals in tests/evals/ for LLM output quality
 
 # 4. Implement
 # (write code)
 
 # 5. Integration tests
-/02_dev:generate_e2e_tests
+/generate-e2e-tests
 ```
 
 ---
@@ -600,18 +600,18 @@ docs/
 
 ```
 1. Have project idea
-2. /01_pre_dev:01_generate_project_charter
+2. /generate-charter
    → Define business case, vision, objectives
 3. Review charter, refine as needed
-4. /01_pre_dev:02_generate_prd
+4. /generate-prd
    → Define detailed requirements
 5. Review PRD, refine as needed
-6. /01_pre_dev:03_generate_architecture_design
+6. /generate-architecture
    → Design system architecture
 7. Review ADD, refine as needed
-8. /01_pre_dev:04_generate_wbs
+8. /generate-wbs
    → Break down into tasks
-9. /01_pre_dev:05_generate_dev_environment_guide
+9. /generate-dev-env
    → Document setup
 10. Begin development phase (pick first task from WBS)
 ```
@@ -620,21 +620,21 @@ docs/
 
 ```
 1. Pick task from WBS
-2. /02_dev:generate_task_spec
+2. /generate-task-spec
    → Create detailed spec
-3. /02_dev:generate_unit_tests
+3. /generate-unit-tests
    → Generate tests (TDD)
 4. Run tests: uv run pytest tests/unit/ -v
    → Should fail
 5. Implement feature following spec
 6. Run tests again
    → Should pass
-7. /02_dev:generate_e2e_tests
+7. /generate-e2e-tests
    → Integration tests
 8. Run: uv run pytest tests/integration/ -v
    → Verify end-to-end
 9. Move spec to docs/features/
-10. /02_dev:update_wbs
+10. /update-wbs
     → Mark task complete
 ```
 
@@ -642,9 +642,9 @@ docs/
 
 ```
 1. Identify changed requirements
-2. /02_dev:update_prd
+2. /update-prd
    → Document changes
-3. /02_dev:update_wbs
+3. /update-wbs
    → Adjust task breakdown
 4. Continue with development workflow
 ```
@@ -653,13 +653,13 @@ docs/
 
 ```
 1. Document reason for refactor in docs/plans/
-2. /02_dev:generate_task_spec
+2. /generate-task-spec
    → Spec the refactoring approach
 3. Generate tests to ensure behavior preservation
 4. Implement refactor
-5. /03_post_dev:update_add
+5. /update-architecture
    → Document architectural changes
-6. /02_dev:update_wbs
+6. /update-wbs
    → Update task status
 ```
 
@@ -667,11 +667,11 @@ docs/
 
 ```
 1. Complete all WBS tasks
-2. /03_post_dev:update_add
+2. /update-architecture
    → Final architecture documentation
-3. /03_post_dev:update_project_charter
+3. /update-charter
    → Document business outcomes
-4. /03_post_dev:generate_case_study
+4. /generate-case-study
    → Create comprehensive retrospective
 5. Archive project or plan next phase
 ```

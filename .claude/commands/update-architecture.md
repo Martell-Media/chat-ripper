@@ -1,4 +1,7 @@
-# Update Architecture Design Document
+---
+description: Update Architecture Design Document based on codebase analysis
+argument-hint: [changes or context]
+---
 
 READ the current ADD from `docs/core/add.md`.
 ANALYZE the codebase to detect architectural patterns and changes.
@@ -16,10 +19,10 @@ $ARGUMENTS
    ```bash
    # Detect new services/modules
    find app -type d -name "*service*" -o -name "*module*" | sort
-   
+
    # Find configuration files revealing architecture
    find . -name "docker-compose*.yml" -o -name "*.dockerfile" -o -name "k8s/*.yaml"
-   
+
    # Detect API definitions
    find app -name "*router*.py" -o -name "*endpoint*.py" -o -name "*api*.py"
    ```
@@ -29,10 +32,10 @@ $ARGUMENTS
    ```bash
    # Check for new architectural dependencies
    grep -E "redis|kafka|rabbitmq|celery|fastapi|django" requirements.txt
-   
+
    # Database technologies
    grep -E "sqlalchemy|pymongo|psycopg|redis" requirements.txt
-   
+
    # External service integrations
    grep -E "boto3|stripe|twilio|sendgrid" requirements.txt
    ```
@@ -42,10 +45,10 @@ $ARGUMENTS
    ```bash
    # Repository pattern
    find app -name "*repository*.py" | head -10
-   
+
    # Event-driven patterns
    grep -r "publish\|subscribe\|emit\|on_event" --include="*.py" | head -10
-   
+
    # Caching implementations
    grep -r "@cache\|redis\|memcache" --include="*.py" | head -10
    ```
@@ -114,7 +117,7 @@ if new_services:
 
 ### Service Topology [EVOLVED]
 **Original Design**: Monolithic API service
-**Current Implementation**: 
+**Current Implementation**:
 - API Gateway (FastAPI)
 - Auth Service (separate container)
 - Worker Service (Celery + Redis)
@@ -133,7 +136,7 @@ if new_services:
 | Auth | JWT local | Auth0 | OAuth configuration in config.py |
 
 ### Architectural Patterns Discovered
-1. **Repository Pattern** 
+1. **Repository Pattern**
    - Evidence: app/repositories/ directory with 5 repository classes
    - Not in original ADD
    - Ask: "What drove the repository pattern adoption?"

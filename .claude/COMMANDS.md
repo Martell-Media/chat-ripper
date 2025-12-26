@@ -11,7 +11,7 @@ In Claude Code, invoke commands using the Skill tool:
 
 Example:
 ```
-/01_pre_dev:01_generate_project_charter
+/generate-charter
 ```
 
 ---
@@ -31,7 +31,7 @@ Commands to capture outcomes and lessons learned.
 
 ## Pre-Development Commands
 
-### `01_pre_dev:01_generate_project_charter`
+### `/generate-charter`
 **Purpose:** Define business vision, objectives, and success criteria
 
 **Creates:**
@@ -57,7 +57,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `01_pre_dev:02_generate_prd`
+### `/generate-prd`
 **Purpose:** Transform business objectives into detailed product requirements
 
 **Creates:**
@@ -85,7 +85,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `01_pre_dev:03_generate_architecture_design`
+### `/generate-architecture`
 **Purpose:** Design system architecture to fulfill product requirements
 
 **Creates:**
@@ -110,7 +110,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `01_pre_dev:04_generate_wbs`
+### `/generate-wbs`
 **Purpose:** Break down architecture into concrete, implementable tasks
 
 **Creates:**
@@ -134,7 +134,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `01_pre_dev:05_generate_dev_environment_guide`
+### `/generate-dev-env`
 **Purpose:** Document setup for development, testing, and deployment environments
 
 **Creates:**
@@ -161,7 +161,7 @@ Commands to capture outcomes and lessons learned.
 
 ## Development Commands
 
-### `02_dev:generate_task_spec`
+### `/generate-task-spec`
 **Purpose:** Create detailed implementation spec for a feature before coding
 
 **Creates:**
@@ -190,7 +190,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `02_dev:generate_prompt`
+### `/generate-prompt`
 **Purpose:** Create structured, production-ready prompts for LLM integrations
 
 **Creates:**
@@ -213,7 +213,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `02_dev:generate_unit_tests`
+### `/generate-unit-tests`
 **Purpose:** Create unit tests for isolated components
 
 **Creates:**
@@ -242,7 +242,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `02_dev:generate_e2e_tests`
+### `/generate-e2e-tests`
 **Purpose:** Create integration tests for complete workflows
 
 **Creates:**
@@ -265,7 +265,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `02_dev:update_prd`
+### `/update-prd`
 **Purpose:** Keep product requirements in sync with implementation reality
 
 **Updates:**
@@ -287,7 +287,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `02_dev:update_wbs`
+### `/update-wbs`
 **Purpose:** Track task completion, complexity changes, and timeline adjustments
 
 **Updates:**
@@ -312,7 +312,7 @@ Commands to capture outcomes and lessons learned.
 
 ## Post-Development Commands
 
-### `03_post_dev:update_add`
+### `/update-architecture`
 **Purpose:** Document architectural decisions and changes from implementation
 
 **Updates:**
@@ -334,7 +334,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `03_post_dev:update_project_charter`
+### `/update-charter`
 **Purpose:** Document business outcomes, lessons learned, and strategic insights
 
 **Updates:**
@@ -356,7 +356,7 @@ Commands to capture outcomes and lessons learned.
 
 ---
 
-### `03_post_dev:generate_case_study`
+### `/generate-case-study`
 **Purpose:** Create comprehensive project retrospective and knowledge artifact
 
 **Creates:**
@@ -383,9 +383,9 @@ Commands to capture outcomes and lessons learned.
 ## Legacy Command
 
 ### `generate-spec`
-**Purpose:** Original task spec generator (superseded by `02_dev:generate_task_spec`)
+**Purpose:** Original task spec generator (superseded by `/generate-task-spec`)
 
-**Note:** Use `02_dev:generate_task_spec` for new projects. This is kept for backward compatibility.
+**Note:** Use `/generate-task-spec` for new projects. This is kept for backward compatibility.
 
 ---
 
@@ -393,35 +393,35 @@ Commands to capture outcomes and lessons learned.
 
 ```
 Starting new project?
-├─ Yes → 01_pre_dev:01_generate_project_charter
-│        └─ Then → 01_pre_dev:02_generate_prd
-│                  └─ Then → 01_pre_dev:03_generate_architecture_design
-│                             └─ Then → 01_pre_dev:04_generate_wbs
-│                                        └─ Then → 01_pre_dev:05_generate_dev_environment_guide
+├─ Yes → /generate-charter
+│        └─ Then → /generate-prd
+│                  └─ Then → /generate-architecture
+│                             └─ Then → /generate-wbs
+│                                        └─ Then → /generate-dev-env
 │
 └─ No → What are you doing?
-        ├─ Implementing feature → 02_dev:generate_task_spec
-        │                         └─ Then → 02_dev:generate_unit_tests
-        │                                    └─ Code → 02_dev:generate_e2e_tests
+        ├─ Implementing feature → /generate-task-spec
+        │                         └─ Then → /generate-unit-tests
+        │                                    └─ Code → /generate-e2e-tests
         │
-        ├─ Building AI feature → 02_dev:generate_task_spec
-        │                        └─ Then → 02_dev:generate_prompt
-        │                                   └─ Then → 02_dev:generate_unit_tests
-        │                                              └─ Code → 02_dev:generate_e2e_tests
+        ├─ Building AI feature → /generate-task-spec
+        │                        └─ Then → /generate-prompt
+        │                                   └─ Then → /generate-unit-tests
+        │                                              └─ Code → /generate-e2e-tests
         │
-        ├─ Requirements changed → 02_dev:update_prd
-        │                         └─ Then → 02_dev:update_wbs
+        ├─ Requirements changed → /update-prd
+        │                         └─ Then → /update-wbs
         │
-        ├─ Completed task → 02_dev:update_wbs
+        ├─ Completed task → /update-wbs
         │
-        ├─ Architecture changed → 03_post_dev:update_add
+        ├─ Architecture changed → /update-architecture
         │
-        ├─ Project complete → 03_post_dev:update_add
-        │                     └─ Then → 03_post_dev:update_project_charter
-        │                                └─ Then → 03_post_dev:generate_case_study
+        ├─ Project complete → /update-architecture
+        │                     └─ Then → /update-charter
+        │                                └─ Then → /generate-case-study
         │
         └─ Just coding? → Remember: Spec before code!
-                          Use 02_dev:generate_task_spec first
+                          Use /generate-task-spec first
 ```
 
 ---
@@ -430,61 +430,61 @@ Starting new project?
 
 ### Pattern: New Project (Complete)
 ```
-1. /01_pre_dev:01_generate_project_charter
-2. /01_pre_dev:02_generate_prd
-3. /01_pre_dev:03_generate_architecture_design
-4. /01_pre_dev:04_generate_wbs
-5. /01_pre_dev:05_generate_dev_environment_guide
+1. /generate-charter
+2. /generate-prd
+3. /generate-architecture
+4. /generate-wbs
+5. /generate-dev-env
 6. Begin development (see Pattern: Feature Development)
 ```
 
 ### Pattern: Feature Development (TDD)
 ```
 1. Pick task from WBS
-2. /02_dev:generate_task_spec
-3. /02_dev:generate_unit_tests
+2. /generate-task-spec
+3. /generate-unit-tests
 4. Run tests (should fail): uv run pytest tests/unit/ -v
 5. Implement feature following spec
 6. Run tests (should pass): uv run pytest tests/unit/ -v
-7. /02_dev:generate_e2e_tests
+7. /generate-e2e-tests
 8. Run integration tests: uv run pytest tests/integration/ -v
-9. /02_dev:update_wbs (mark complete)
+9. /update-wbs (mark complete)
 ```
 
 ### Pattern: AI Feature Development
 ```
 1. Pick task from WBS
-2. /02_dev:generate_task_spec
-3. /02_dev:generate_prompt
-4. /02_dev:generate_unit_tests (with mocked LLM)
+2. /generate-task-spec
+3. /generate-prompt
+4. /generate-unit-tests (with mocked LLM)
 5. Create evals in tests/evals/ for LLM quality
 6. Implement feature
-7. /02_dev:generate_e2e_tests
-8. /02_dev:update_wbs
+7. /generate-e2e-tests
+8. /update-wbs
 ```
 
 ### Pattern: Requirements Changed
 ```
-1. /02_dev:update_prd (document changes)
-2. /02_dev:update_wbs (adjust tasks)
+1. /update-prd (document changes)
+2. /update-wbs (adjust tasks)
 3. Continue development
 ```
 
 ### Pattern: Major Refactor
 ```
-1. /02_dev:generate_task_spec (refactor approach)
-2. /02_dev:generate_unit_tests (preserve behavior)
+1. /generate-task-spec (refactor approach)
+2. /generate-unit-tests (preserve behavior)
 3. Implement refactor
-4. /03_post_dev:update_add (architecture changes)
-5. /02_dev:update_wbs (track completion)
+4. /update-architecture (architecture changes)
+5. /update-wbs (track completion)
 ```
 
 ### Pattern: Project Completion
 ```
 1. Complete all WBS tasks
-2. /03_post_dev:update_add
-3. /03_post_dev:update_project_charter
-4. /03_post_dev:generate_case_study
+2. /update-architecture
+3. /update-charter
+4. /generate-case-study
 ```
 
 ---

@@ -1,4 +1,7 @@
-# Update Work Breakdown Structure
+---
+description: Update WBS based on git commits and actual development
+argument-hint: [commit count or time range, e.g., "last 20 commits" or "2 days"]
+---
 
 READ the WBS document from `docs/core/wbs.md`.
 ANALYZE recent git commits to detect work done vs planned tasks.
@@ -23,10 +26,10 @@ Default: Analyze last 2 days of commits if no commit count specified.
    ```bash
    # If user specifies: "last 20 commits"
    git log --oneline -20
-   
+
    # Default: last 2 days
    git log --since="2 days ago" --oneline
-   
+
    # Show which files changed most (complexity indicators)
    git log --since="2 days ago" --name-only --pretty=format: | \
      sort | uniq -c | sort -nr | head -10
@@ -37,10 +40,10 @@ Default: Analyze last 2 days of commits if no commit count specified.
    ```bash
    # Find recent TODOs
    git grep -n "TODO\|FIXME\|HACK" | head -20
-   
+
    # New files not in WBS
    git ls-files --others --exclude-standard | grep -E "\.(py|ts|tsx)$"
-   
+
    # Files created recently
    find app -type f -name "*.py" -mtime -2
    ```
@@ -95,8 +98,8 @@ Default: Analyze last 2 days of commits if no commit count specified.
 - [ ] Create ValidationNode for input sanitization
   - Evidence: TODO in analyze_node.py:45
   - Complexity: Low
-  
-- [ ] Add error recovery for API timeouts  
+
+- [ ] Add error recovery for API timeouts
   - Evidence: 3 timeout-related commits in last 2 days
   - Complexity: Medium
 
@@ -140,7 +143,7 @@ Add a dedicated section in the WBS:
 Every change must have evidence:
 
 - Specific commit SHAs
-- File paths created/modified  
+- File paths created/modified
 - TODO/FIXME line numbers
 - Error messages encountered
 
@@ -165,7 +168,7 @@ Also maintain a section for patterns and learnings:
 ## Critical Instructions
 
 1. **ASK before assuming**: If task descriptions are unclear or you need more context, ASK THE USER
-2. **NEVER invent tasks**: Only document work that has evidence in commits or code  
+2. **NEVER invent tasks**: Only document work that has evidence in commits or code
 3. **NO assumptions about future work**: Only update based on what actually happened
 4. **Update in place**: Always modify the existing WBS file, never create versions
 5. **Capture decisions**: Record WHY changes were made, not just what changed

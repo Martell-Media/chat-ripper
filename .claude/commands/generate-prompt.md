@@ -1,4 +1,7 @@
-# Generate LLM Prompt
+---
+description: Generate structured LLM prompt using XML template
+argument-hint: [use case description]
+---
 
 READ the prompt template specification in `docs/templates/prompt_template.md`.
 UNDERSTAND the XML-based structure and best practices for creating high-quality, reusable prompts.

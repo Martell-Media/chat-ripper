@@ -1,4 +1,7 @@
-# Update Project Charter
+---
+description: Update Project Charter based on project delivery outcomes
+argument-hint: [project context]
+---
 
 READ the original project charter from `docs/core/project_charter.md`.
 ANALYZE PRD, WBS, and ADD to understand what was actually built vs planned.
@@ -143,7 +146,7 @@ Based on delivered capabilities:
 ## Critical Instructions
 
 1. **Analyze first, ask second** - Base questions on document evidence
-2. **Map objectives to features** - Connect charter goals to PRD/WBS deliverables  
+2. **Map objectives to features** - Connect charter goals to PRD/WBS deliverables
 3. **Infer from architecture** - ADD choices have business implications
 4. **No assumptions** - Ask developer to confirm all inferences
 5. **Focus on gaps** - What changed and why

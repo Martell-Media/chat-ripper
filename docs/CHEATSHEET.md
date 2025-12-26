@@ -8,37 +8,37 @@ One-page reference for common commands and workflows.
 
 ```
 Starting new project?
-  → /01_pre_dev:01_generate_project_charter
-  → /01_pre_dev:02_generate_prd
-  → /01_pre_dev:03_generate_architecture_design
-  → /01_pre_dev:04_generate_wbs
-  → /01_pre_dev:05_generate_dev_environment_guide
+  → /generate-charter
+  → /generate-prd
+  → /generate-architecture
+  → /generate-wbs
+  → /generate-dev-env
 
 Implementing feature from WBS?
-  → /02_dev:generate_task_spec
-  → /02_dev:generate_unit_tests
+  → /generate-task-spec
+  → /generate-unit-tests
   → (write code)
-  → /02_dev:generate_e2e_tests
-  → /02_dev:update_wbs
+  → /generate-e2e-tests
+  → /update-wbs
 
 Building AI feature?
-  → /02_dev:generate_task_spec
-  → /02_dev:generate_prompt
-  → /02_dev:generate_unit_tests
+  → /generate-task-spec
+  → /generate-prompt
+  → /generate-unit-tests
   → (write code)
   → tests/evals/ for quality
 
 Requirements changed?
-  → /02_dev:update_prd
-  → /02_dev:update_wbs
+  → /update-prd
+  → /update-wbs
 
 Architecture changed?
-  → /03_post_dev:update_add
+  → /update-architecture
 
 Project complete?
-  → /03_post_dev:update_add
-  → /03_post_dev:update_project_charter
-  → /03_post_dev:generate_case_study
+  → /update-architecture
+  → /update-charter
+  → /generate-case-study
 ```
 
 ---
@@ -390,19 +390,19 @@ print(dir(object))  # See all attributes
 
 ```
 Is this a new project idea?
-├─ Yes → generate_project_charter
+├─ Yes → /generate-charter
 └─ No → Is this defining what to build?
-    ├─ Yes → generate_prd
+    ├─ Yes → /generate-prd
     └─ No → Is this system architecture?
-        ├─ Yes → generate_architecture_design
+        ├─ Yes → /generate-architecture
         └─ No → Is this planning tasks?
-            ├─ Yes → generate_wbs
+            ├─ Yes → /generate-wbs
             └─ No → Am I about to write code?
-                ├─ Yes → generate_task_spec
+                ├─ Yes → /generate-task-spec
                 └─ No → Requirements changed?
-                    ├─ Yes → update_prd
+                    ├─ Yes → /update-prd
                     └─ No → Task completed?
-                        └─ Yes → update_wbs
+                        └─ Yes → /update-wbs
 ```
 
 ### What tests do I need?
