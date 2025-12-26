@@ -2,7 +2,7 @@
 
 READ the spec template in `docs/templates/specs_template.md`.
 READ the project architecture in `docs/core/add.md` (if it exists) to guide your implementation plan and ensure it aligns with the overall project structure.
-OPTIONALLY READ `docs/guides/genai_launchpad_workflow_architecture.md` for workflow-based architecture patterns (useful for AI pipelines and DAG-based systems).
+OPTIONALLY READ `docs/examples/genai_launchpad_workflow_architecture.md` for workflow-based architecture patterns (useful for AI pipelines and DAG-based systems).
 USE your UNDERSTANDING of the spec template to create a specification for this request:
 
 $ARGUMENTS

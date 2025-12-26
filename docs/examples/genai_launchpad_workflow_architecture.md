@@ -1,5 +1,7 @@
 # GenAI Launchpad Workflow Architecture
 
+> **Note:** This is a **reference architecture example** demonstrating patterns you might implement using this template. The `app/core/` paths referenced in this document describe a specific framework implementation, not code that exists in this template. Use this as inspiration for building similar workflow orchestration systems.
+
 ## Overview
 
 GenAI Launchpad is a **DAG-based workflow orchestration framework** designed for building AI-powered processing pipelines. It implements the **Chain of Responsibility pattern** with type-safe, schema-driven workflows that can integrate multiple AI providers and execute nodes both sequentially and concurrently.

@@ -92,8 +92,8 @@ Complete guide to CLAUDE.md files:
 
 ---
 
-### [genai_launchpad_workflow_architecture.md](genai_launchpad_workflow_architecture.md)
-**DAG-based workflow orchestration framework patterns**
+### [genai_launchpad_workflow_architecture.md](../examples/genai_launchpad_workflow_architecture.md)
+**DAG-based workflow orchestration framework patterns (Reference Architecture)**
 
 Architecture guide for building AI-powered processing pipelines:
 - TaskContext pattern for state management
@@ -101,6 +101,8 @@ Architecture guide for building AI-powered processing pipelines:
 - NodeConfig for DAG node configuration
 - Agent, Concurrent, and Router node patterns
 - Workflow validation and execution patterns
+
+**Note:** This is a reference architecture example for systems you might build on this template.
 
 **Use when:** Building AI pipelines, workflow systems, or DAG-based architectures
 
