@@ -1,5 +1,17 @@
 # Spec-Driven Development with GenAI Launchpad
 
+**Note:** This presentation uses shorthand command names for readability. The actual command syntax is:
+- `/project_charter` = `/01_pre_dev:01_generate_project_charter`
+- `/prd` = `/01_pre_dev:02_generate_prd`
+- `/architecture_design` = `/01_pre_dev:03_generate_architecture_design`
+- `/wbs` = `/01_pre_dev:04_generate_wbs`
+- `/task_spec` = `/02_dev:generate_task_spec`
+- `/update_prd` = `/02_dev:update_prd`
+- `/update_wbs` = `/02_dev:update_wbs`
+- `/update_add` = `/03_post_dev:update_add`
+
+See [COMMANDS.md](../../.claude/COMMANDS.md) for the complete command reference.
+
 ---SLIDE 1: Title Slide---
 
 # Spec-Driven Development
@@ -71,7 +83,7 @@ genai-launchpad/
 │   ├── core/              # Workflow engine
 │   ├── workflows/         # Your custom workflows
 │   └── CLAUDE.md         # Application insights
-├── ai_docs/               # AI documentation
+├── docs/               # AI documentation
 │   ├── commands/         # AI command library
 │   ├── context/          # Project specifications
 │   └── ai_guides/        # This documentation
@@ -110,7 +122,7 @@ The AI will ask about:
 - Resource constraints and timeline
 - Risk assessment
 
-Output: `ai_docs/context/core_docs/project_charter.md`
+Output: `docs/core/project_charter.md`
 
 ---SLIDE 8: Defining Requirements---
 
@@ -130,7 +142,7 @@ The consultation covers:
 - Non-functional requirements (performance, security)
 - Acceptance criteria for success
 
-Output: `ai_docs/context/core_docs/prd.md`
+Output: `docs/core/prd.md`
 
 ---SLIDE 9: Architecture Design---
 
@@ -150,7 +162,7 @@ Key decisions:
 - Integration patterns
 - Security architecture
 
-Output: `ai_docs/context/core_docs/add.md`
+Output: `docs/core/add.md`
 
 ---SLIDE 10: Work Breakdown---
 
@@ -169,7 +181,7 @@ Creates tasks with:
 - Logical grouping and sequencing
 - No time estimates (complexity matters more)
 
-Output: `ai_docs/context/core_docs/wbs.md`
+Output: `docs/core/wbs.md`
 
 ---SLIDE 11: Implementation Workflow---
 
@@ -334,10 +346,10 @@ Remember: You control the AI through specifications. The AI amplifies your capab
 
 ## Everything You Need
 
-- **Main Guide**: `ai_docs/ai_guides/AI_ASSISTED_DEVELOPMENT_GUIDE.md`
-- **Quick Start**: `ai_docs/ai_guides/QUICK_START.md`  
-- **CLAUDE.md Guide**: `ai_docs/ai_guides/CLAUDE_MD_USAGE.md`
-- **Command Reference**: `ai_docs/commands/`
+- **Main Guide**: `docs/ai_guides/AI_ASSISTED_DEVELOPMENT_GUIDE.md`
+- **Quick Start**: `docs/ai_guides/QUICK_START.md`  
+- **CLAUDE.md Guide**: `docs/ai_guides/CLAUDE_MD_USAGE.md`
+- **Command Reference**: `docs/commands/`
 
 ## Support
 

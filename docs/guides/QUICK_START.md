@@ -66,7 +66,7 @@ Project Milestone
     │   └─> Update relevant CLAUDE.md files
     │
     └─> Project Complete
-        └─> /update_project_charter for business outcomes
+        └─> /03_post_dev:update_project_charter for business outcomes
 ```
 
 ## Essential Command Patterns
@@ -187,7 +187,7 @@ At major milestones or project completion, update high-level documentation.
 /03_post_dev:update_add "Document architecture evolution"
 
 # At project completion:
-/update_project_charter "Update with business outcomes and lessons learned"
+/03_post_dev:update_project_charter "Update with business outcomes and lessons learned"
 ```
 
 ## Common Scenarios
@@ -292,8 +292,8 @@ These commands create initial documentation through intelligent consultation:
 These commands support active development:
 
 - `/02_dev:generate_task_spec [feature description]` - Creates detailed implementation specification
-- `/generate_prompt [use case]` - Creates reusable LLM prompts
-- `/generate_unit_tests [specification]` - Generates focused unit tests
+- `/02_dev:generate_prompt [use case]` - Creates reusable LLM prompts
+- `/02_dev:generate_unit_tests [specification]` - Generates focused unit tests
 
 ### Update Commands
 
@@ -302,7 +302,7 @@ These commands maintain documentation accuracy through intelligent analysis:
 - `/02_dev:update_wbs [last N commits or days]` - Updates task status and complexity
 - `/02_dev:update_prd [reason for update]` - Updates requirements based on discoveries
 - `/03_post_dev:update_add [after implementation]` - Updates architecture documentation
-- `/update_project_charter [at completion]` - Updates business outcomes
+- `/03_post_dev:update_project_charter [at completion]` - Updates business outcomes
 
 ## Tips for Success
 
