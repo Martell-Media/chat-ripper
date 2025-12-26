@@ -129,7 +129,8 @@ When adding new functionality to an existing system, you need targeted specifica
 cat docs/core/prd.md
 cat docs/core/wbs.md
 # Read relevant CLAUDE.md files
-cat app/core/CLAUDE.md
+cat CLAUDE.md  # Project-wide patterns
+cat docs/CLAUDE.md  # Documentation guidelines
 ```
 
 #### Step 2: Specify New Feature

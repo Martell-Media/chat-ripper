@@ -32,7 +32,7 @@ This approach keeps documentation relevant and useful. Future developers (includ
 
 Always read the CLAUDE.md file in any directory where you'll be working. These files contain critical context that prevents errors and guides proper implementation. Reading takes minutes but saves hours of debugging.
 
-For example, before implementing a new workflow node, read `app/core/nodes/CLAUDE.md`. You'll learn about the execution model, state management constraints, and integration patterns. This knowledge shapes how you design your node.
+For example, before implementing a new workflow node, read CLAUDE.md files in your app modules (e.g., `app/api/CLAUDE.md`). You'll learn about the execution model, state management constraints, and integration patterns. This knowledge shapes how you design your node.
 
 ### During Specification Creation
 
@@ -121,7 +121,7 @@ The root CLAUDE.md provides project-wide context. It documents global convention
 
 Each major module or directory can have its own CLAUDE.md. These files document module-specific patterns and gotchas. They explain how components within the module interact and what constraints apply.
 
-For example, `app/core/CLAUDE.md` documents workflow execution patterns that apply to all workflows. It explains the DAG execution model, node instantiation behavior, and error propagation rules.
+For example, you might create `app/api/CLAUDE.md` to document API endpoint patterns, request/response handling conventions, and authentication requirements that apply to all endpoints in that module.
 
 ### Feature-Level CLAUDE.md
 

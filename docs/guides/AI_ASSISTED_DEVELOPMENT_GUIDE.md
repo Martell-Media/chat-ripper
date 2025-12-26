@@ -269,7 +269,7 @@ This isn't about documenting every class and function. It focuses on significant
 
 #### Charter Reflection
 
-When projects reach completion or major milestones, the `/update_project_charter` command helps assess business outcomes. It analyzes all documentation to understand what was built versus what was planned, then asks about business impact.
+When projects reach completion or major milestones, the `/03_post_dev:update_project_charter` command helps assess business outcomes. It analyzes all documentation to understand what was built versus what was planned, then asks about business impact.
 
 This reflection focuses on outcomes executives care about. Did you achieve the cost reduction targets? How did users respond to the solution? What market opportunities emerged? The updated charter becomes a historical record that informs future projects.
 

@@ -86,7 +86,7 @@ genai-launchpad/
 ├── docs/               # AI documentation
 │   ├── commands/         # AI command library
 │   ├── context/          # Project specifications
-│   └── ai_guides/        # This documentation
+│   └── guides/           # This documentation
 └── docker/               # Container setup
 ```
 
@@ -221,8 +221,9 @@ CLAUDE.md files capture non-obvious insights:
 Example locations:
 
 - `/CLAUDE.md` - Project-wide conventions
-- `/app/core/CLAUDE.md` - Workflow engine insights
-- `/app/workflows/your_workflow/CLAUDE.md` - Feature-specific notes
+- `/app/api/CLAUDE.md` - API endpoint patterns (example - create as needed)
+- `/app/services/CLAUDE.md` - Service layer patterns (example - create as needed)
+- `/docs/CLAUDE.md` - Documentation placement guidelines (exists in template)
 
 ---SLIDE 13: CLAUDE.md Best Practices---
 
@@ -346,10 +347,10 @@ Remember: You control the AI through specifications. The AI amplifies your capab
 
 ## Everything You Need
 
-- **Main Guide**: `docs/ai_guides/AI_ASSISTED_DEVELOPMENT_GUIDE.md`
-- **Quick Start**: `docs/ai_guides/QUICK_START.md`  
-- **CLAUDE.md Guide**: `docs/ai_guides/CLAUDE_MD_USAGE.md`
-- **Command Reference**: `docs/commands/`
+- **Main Guide**: `docs/guides/AI_ASSISTED_DEVELOPMENT_GUIDE.md`
+- **Quick Start**: `docs/guides/QUICK_START.md`  
+- **CLAUDE.md Guide**: `docs/guides/CLAUDE_MD_USAGE.md`
+- **Command Reference**: `.claude/commands/`
 
 ## Support
 
