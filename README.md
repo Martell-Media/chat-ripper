@@ -1,6 +1,23 @@
-# Python AI Backend Boilerplate
+# Agentic Coding Blueprint - Project Template
 
-A proven project structure for AI-powered Python backend applications.
+A complete AI-assisted development template with FastAPI backend, structured workflows, and 14 Claude Code commands.
+
+## What This Is
+
+This template provides:
+- **Modern Python stack** (FastAPI, PostgreSQL, SQLAlchemy, Pydantic)
+- **14 Claude Code commands** for spec-driven development
+- **Structured documentation** (charter, PRD, architecture, WBS)
+- **Complete workflows** for project lifecycle (pre-dev, dev, post-dev)
+- **Testing framework** (unit, integration, evals)
+
+**Philosophy:** Spec-driven development with AI assistance. Better engineering fundamentals = better AI-assisted coding.
+
+## Getting Started
+
+**New to this template?** Start here: [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)
+
+**Quick command reference:** [`.claude/COMMANDS.md`](.claude/COMMANDS.md)
 
 ## Quick start
 
@@ -65,8 +82,53 @@ project/
 - **UV** — Dependency management
 - **Docker Compose** — Local development
 
+## Available Commands
+
+This template includes 14 Claude Code commands for the complete project lifecycle:
+
+**Pre-Development (5):** Project charter, PRD, architecture, WBS, dev environment
+**Development (6):** Task specs, prompts, unit tests, e2e tests, PRD updates, WBS updates
+**Post-Development (3):** Architecture updates, charter updates, case studies
+
+See [`.claude/COMMANDS.md`](.claude/COMMANDS.md) for details.
+
+## Workflows
+
+### Starting a New Project
+```
+1. Skill: 01_pre_dev:01_generate_project_charter    # Business vision
+2. Skill: 01_pre_dev:02_generate_prd                # Product requirements
+3. Skill: 01_pre_dev:03_generate_architecture_design # System design
+4. Skill: 01_pre_dev:04_generate_wbs                # Task breakdown
+5. Skill: 01_pre_dev:05_generate_dev_environment_guide # Setup guide
+```
+
+### Implementing a Feature (TDD)
+```
+1. Skill: 02_dev:generate_task_spec      # Spec before code
+2. Skill: 02_dev:generate_unit_tests     # Tests first
+3. Implement feature following spec
+4. Skill: 02_dev:generate_e2e_tests      # Integration tests
+5. Skill: 02_dev:update_wbs              # Track completion
+```
+
+See [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) for complete workflows.
+
+## Documentation
+
+### Core Guides
+- **[Getting Started](docs/GETTING_STARTED.md)** - Complete workflow guide for starting projects
+- **[Commands Reference](.claude/COMMANDS.md)** - All 14 commands with usage patterns
+- **[Quick Start Guide](docs/guides/QUICK_START.md)** - Decision trees for common scenarios
+- **[AI-Assisted Development](docs/guides/AI_ASSISTED_DEVELOPMENT_GUIDE.md)** - Methodology and philosophy
+- **[CLAUDE.md Usage](docs/guides/CLAUDE_MD_USAGE.md)** - Context management patterns
+
+### Templates
+- **[Spec Template](docs/templates/specs_template.md)** - Engineering specification structure
+- **[Prompt Template](docs/templates/prompt_template.md)** - LLM prompt design
+
 ## Resources
 
-- [UV](https://docs.astral.sh/uv/)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Pydantic](https://docs.pydantic.dev/)
+- **Tools:** [UV](https://docs.astral.sh/uv/), [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/)
+- **AI Tools:** [Cursor](https://cursor.com), [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- **Original Course:** [Agentic Coding Blueprint](https://github.com/datalumina/agentic-coding-blueprint)
