@@ -606,6 +606,28 @@ body {
   color: var(--text-secondary);
 }
 
+.sp-warning-row {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-top: 4px;
+}
+
+.sp-warning-row .sp-analysis-label {
+  color: var(--warning);
+}
+
+.sp-warning-row .sp-analysis-value {
+  color: var(--warning);
+}
+
+.sp-analysis-label[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--text-faint);
+  text-underline-offset: 2px;
+}
+
 /* ── Selected Text Preview ── */
 
 .sp-selected-preview {
@@ -839,34 +861,6 @@ body {
   font-weight: 600;
 }
 
-/* ── Reasoning ── */
-
-.sp-reasoning {
-  margin-top: 14px;
-  padding: 12px 14px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  border-left: 2px solid var(--text-faint);
-}
-
-.sp-reasoning-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.sp-reasoning-text {
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
 
 /* ── Error ── */
 

@@ -750,11 +750,7 @@ function buildStreamDom() {
     '<div class="sp-analysis-row" id="s-energy-row" style="display:none"><span class="sp-analysis-label">Energy</span><span class="sp-analysis-value" id="s-energy-val"></span></div>' +
     '<div class="sp-analysis-row" id="s-read-row" style="display:none"><span class="sp-analysis-label">Read</span><span class="sp-analysis-value" id="s-read-val"></span></div>' +
     "</div>" +
-    '<div class="sp-messages" id="s-messages" style="display:none"></div>' +
-    '<div class="sp-reasoning" id="s-reasoning" style="display:none">' +
-    '<div class="sp-reasoning-label">Why this works</div>' +
-    '<div class="sp-reasoning-text" id="s-reasoning-val"></div>' +
-    "</div>";
+    '<div class="sp-messages" id="s-messages" style="display:none"></div>';
   streamDomReady = true;
   streamMsgCount = 0;
 }
@@ -847,17 +843,6 @@ function updateStreamDom(json) {
       if (el) el.textContent = msgs.partial;
       setStreamCursor("s-msg-" + pIdx);
     }
-  }
-
-  // Reasoning
-  var reasoning = jsonExtractString(json, "reasoning");
-  if (reasoning) {
-    var rEl = document.getElementById("s-reasoning");
-    var rVal = document.getElementById("s-reasoning-val");
-    if (rEl) rEl.style.display = "";
-    if (rVal) rVal.textContent = reasoning.value;
-    if (!reasoning.done) setStreamCursor("s-reasoning-val");
-    else if (streamActiveField === "s-reasoning-val") setStreamCursor(null);
   }
 
   content.scrollTop = content.scrollHeight;
@@ -973,8 +958,7 @@ function showReply(response) {
   insertCycleIdx = 0;
 
   let messages,
-    analysis = null,
-    reasoning = null;
+    analysis = null;
   const backend = response.backend || "thinking";
 
   const badgeMap = {
@@ -987,7 +971,6 @@ function showReply(response) {
   if (response.structured && response.messages) {
     messages = response.messages;
     analysis = response.analysis;
-    reasoning = response.reasoning;
   } else {
     const raw = response.raw || "";
     let parts = raw.split(/\*?\*?Message\s*\d+:?\*?\*?\s*/i).filter((s) => s.trim());
@@ -1022,11 +1005,7 @@ function showReply(response) {
 
   // Analysis
   if (analysis) {
-    html += `<div class="sp-analysis">
-      <div class="sp-analysis-row"><span class="sp-analysis-label">Stage</span><span class="sp-analysis-value">${esc(analysis.stage || "")}</span></div>
-      <div class="sp-analysis-row"><span class="sp-analysis-label">Energy</span><span class="sp-analysis-value">${esc(analysis.energy || "")}</span></div>
-      <div class="sp-analysis-row"><span class="sp-analysis-label">Read</span><span class="sp-analysis-value">${esc(analysis.realMeaning || "")}</span></div>
-    </div>`;
+    html += buildAnalysisHtml(analysis);
   }
 
   // Messages
@@ -1047,14 +1026,6 @@ function showReply(response) {
   html += `<button class="sp-regenerate-btn" id="regenBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Regenerate</button>`;
 
   html += "</div>";
-
-  // Reasoning
-  if (reasoning) {
-    html += `<div class="sp-reasoning">
-      <div class="sp-reasoning-label">Why this works</div>
-      <div class="sp-reasoning-text">${esc(reasoning)}</div>
-    </div>`;
-  }
 
   content.innerHTML = html;
 

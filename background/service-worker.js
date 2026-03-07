@@ -922,22 +922,18 @@ async function handleAlfredResponse(response) {
 
   const analysis = {
     stage: data.phase || "unknown",
-    energy: data.confidence ? Math.round(data.confidence * 100) + "% confidence" : "",
+    match: data.confidence || 0,
     realMeaning: data.reasoning || "",
+    warning: data.warning || null,
+    warningFix: data.warning_fix || null,
   };
-
-  let reasoning = data.reasoning || "";
-  if (data.warning) {
-    reasoning = "Warning: " + data.warning;
-    if (data.warning_fix) reasoning += "\nSuggested fix: " + data.warning_fix;
-  }
 
   return {
     success: true,
     structured: true,
     analysis: analysis,
     messages: suggestionMessages,
-    reasoning: reasoning || null,
+    reasoning: null,
     source: data.source || "alfred",
     backend: "alfred",
   };
@@ -1253,15 +1249,11 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
 
   const analysis = {
     stage: metadata?.phase || "unknown",
-    energy: metadata?.confidence ? Math.round(metadata.confidence * 100) + "% confidence" : "",
+    match: metadata?.confidence || 0,
     realMeaning: metadata?.reasoning || "",
+    warning: metadata?.warning || null,
+    warningFix: metadata?.warning_fix || null,
   };
-
-  let reasoning = metadata?.reasoning || "";
-  if (metadata?.warning) {
-    reasoning = "Warning: " + metadata.warning;
-    if (metadata?.warning_fix) reasoning += "\nSuggested fix: " + metadata.warning_fix;
-  }
 
   port.postMessage({
     type: "STREAM_END",
@@ -1270,7 +1262,7 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
       structured: true,
       analysis: analysis,
       messages: suggestionMessages,
-      reasoning: reasoning || null,
+      reasoning: null,
       source: metadata?.source || "alfred",
       backend: "alfred",
     },
