@@ -490,6 +490,13 @@ chrome.storage.local.get("smartrip_api_key", (result) => {
   }
 });
 
+// Immediate gate display when key is removed from any context
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.smartrip_api_key?.oldValue && !changes.smartrip_api_key?.newValue) {
+    resetApiKey();
+  }
+});
+
 function doRequest(text, replyMode) {
   // Disconnect any existing port
   if (activePort) {
@@ -539,6 +546,8 @@ function doRequest(text, replyMode) {
       activePort = null;
       if (msg.data.success) {
         showReply(msg.data);
+      } else if (msg.data.key_revoked) {
+        resetApiKey();
       } else {
         showError(msg.data.error || "Unknown error");
       }
@@ -549,7 +558,11 @@ function doRequest(text, replyMode) {
       metricsEndTime = performance.now();
       setGenerating(false);
       activePort = null;
-      showError(msg.error);
+      if (msg.key_revoked) {
+        resetApiKey();
+      } else {
+        showError(msg.error);
+      }
       port.disconnect();
     }
   });

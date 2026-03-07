@@ -1,8 +1,7 @@
 // ChatRipper Extension - Background Service Worker
 importScripts("../config.js");
+importScripts("auth.js");
 console.log("[BG] Service worker starting...");
-
-const ALFRED_KEY = "aa282e3e5cba71b227771b971b6845130d3fa85eaefe5f5de58f60bc3994531f";
 const sessionId = "ext-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
 
 // --- Listener MUST be at top level, registered synchronously ---
@@ -65,10 +64,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     err.message +
                     ", Alfred: " +
                     err2.message,
+                  key_revoked: !!(err.keyRevoked || err2.keyRevoked),
                 });
               });
           } else {
-            sendResponse({ success: false, error: err.message });
+            sendResponse({ success: false, error: err.message, key_revoked: !!err.keyRevoked });
           }
         });
     });
@@ -299,7 +299,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const cid = message.contactId;
     console.log("[BG] CLOSER_CHECK for", cid);
     fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      headers: { "X-API-Key": ALFRED_KEY },
+      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -317,7 +317,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("[BG] CLOSER_ADD for", cid);
     fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
       method: "POST",
-      headers: { "X-API-Key": ALFRED_KEY },
+      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
     })
       .then((r) => r.json())
       .then((data) => sendResponse({ success: true, data }))
@@ -333,7 +333,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("[BG] CLOSER_REMOVE for", cid);
     fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
       method: "DELETE",
-      headers: { "X-API-Key": ALFRED_KEY },
+      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
     })
       .then((r) => r.json())
       .then((data) => sendResponse({ success: true, data }))
@@ -376,7 +376,7 @@ chrome.runtime.onConnect.addListener((port) => {
             doAlfredStreamFetch(port, msg.text, msg.platform, msg.replyMode, msg.fullPage).catch(
               (err) => {
                 console.error("[BG] Alfred stream error:", err.message);
-                port.postMessage({ type: "ERROR", error: err.message });
+                port.postMessage({ type: "ERROR", error: err.message, key_revoked: !!err.keyRevoked });
               },
             );
           } else {
@@ -404,6 +404,7 @@ chrome.runtime.onConnect.addListener((port) => {
                   port.postMessage({
                     type: "ERROR",
                     error: "Both backends failed. " + err.message + ", Alfred: " + err2.message,
+                    key_revoked: !!(err.keyRevoked || err2.keyRevoked),
                   });
                 });
             });
@@ -899,7 +900,9 @@ function buildRevioPayload(fullPage, replyMode) {
 async function handleAlfredResponse(response) {
   console.log("[BG] Alfred response status:", response.status);
 
-  if (response.status === 401) throw new Error("Alfred API: Invalid API key");
+  if (response.status === 401 || response.status === 403) {
+    throw await clearRevokedKey();
+  }
   if (response.status === 422) {
     const errData = await response.json().catch(() => ({}));
     throw new Error("Alfred API validation error: " + JSON.stringify(errData));
@@ -943,6 +946,12 @@ async function handleAlfredResponse(response) {
 // --- Alfred's backend fetch ---
 async function doAlfredFetch(text, platform, replyMode, fullPage) {
   console.log("[BG] doAlfredFetch called");
+  const key = await getStoredApiKey();
+  if (!key) {
+    const err = new Error("No API key configured");
+    err.keyRevoked = true;
+    throw err;
+  }
 
   // Revio high-quality path: use real API data when available
   if (fullPage?.contactId && fullPage?.messages?.length > 0) {
@@ -950,7 +959,7 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
     console.log("[BG] Alfred Revio payload:", JSON.stringify(payload).substring(0, 300));
     const response = await fetch(CONFIG.SMARTRIP_API + "/suggest", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify(payload),
     });
     return handleAlfredResponse(response);
@@ -1047,7 +1056,7 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
 
   const response = await fetch(CONFIG.SMARTRIP_API + "/suggest", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify(payload),
   });
 
@@ -1073,6 +1082,12 @@ function parseSSE(block) {
 // --- Alfred's streaming fetch (SSE from /suggest/stream) ---
 async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
   console.log("[BG] doAlfredStreamFetch called");
+  const key = await getStoredApiKey();
+  if (!key) {
+    const err = new Error("No API key configured");
+    err.keyRevoked = true;
+    throw err;
+  }
 
   let payload;
 
@@ -1168,12 +1183,12 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
 
   const response = await fetch(CONFIG.SMARTRIP_API + "/suggest/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify(payload),
   });
 
-  if (response.status === 401) {
-    throw new Error("Alfred API: Invalid API key");
+  if (response.status === 401 || response.status === 403) {
+    throw await clearRevokedKey();
   }
   if (response.status === 422) {
     const errData = await response.json().catch(() => ({}));
