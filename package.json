@@ -1,0 +1,19 @@
+{
+  "name": "chat-ripper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ChatRipper AI - Chrome extension for AI-powered sales reply suggestions",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "package": "scripts/package.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^3.0.0"
+  }
+}

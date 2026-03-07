@@ -1,97 +1,21 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
+# Dependencies
+node_modules/
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-env/
-build/
-develop-eggs/
+# Build output
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# DotEnv configuration
-.env
-
-# Database
-*.db
-*.rdb
-
-# Pycharm
-.idea
-
-# VS Code
-*.code-workspace
-
-# Spyder
-.spyproject/
-
-# Jupyter NB Checkpoints
-.ipynb_checkpoints/
-
-# Mac OS-specific storage files
+# OS files
 .DS_Store
 
-# vim
+# IDE
+.idea/
+*.code-workspace
 *.swp
 *.swo
 
-# Mypy cache
-.mypy_cache/
+# Test coverage
+coverage/
 
-# Virtual environment
-.venv/
-
-# AI-specific directories
-.cursor/                    # Cursor workspace settings
-docs/scratchpad/           # Temporary working notes (keep folder, ignore contents)
-!docs/scratchpad/.gitkeep  # Keep folder structure
-playground/**/*.db         # Temporary playground databases
-playground/**/*.sqlite     # Temporary playground databases
-.claude/scratchpad/        # Claude Code scratchpad
+# Scratchpad (keep folder, ignore contents)
+docs/scratchpad/
+!docs/scratchpad/.gitkeep

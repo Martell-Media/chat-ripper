@@ -1,56 +1,71 @@
 // ChatRipper Extension - Background Service Worker
-console.log('[BG] Service worker starting...');
+importScripts("../config.js");
+console.log("[BG] Service worker starting...");
 
-const WEBHOOKS = {
-  thinking: 'https://backend-production-06c5.up.railway.app/api/reply/thinking',
-  fast: 'https://backend-production-06c5.up.railway.app/api/reply/fast'
-};
-const COACH_WEBHOOK = 'https://rigchris.app.n8n.cloud/webhook/be253eb0-537a-4e3f-bfe7-b49e9d8dd17a/chat';
-const ROLEPLAY_WEBHOOK = 'https://rigchris.app.n8n.cloud/webhook/2cca4c7d-1531-40b6-a818-b0b2495ec415/chat';
-const ALFRED_API = 'https://ai-sales-copilot-458007064300.us-east1.run.app';
-const ALFRED_KEY = 'aa282e3e5cba71b227771b971b6845130d3fa85eaefe5f5de58f60bc3994531f';
-const CLOSER_API = 'https://close.alfredloh.com';
-let sessionId = 'ext-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
+const ALFRED_KEY = "aa282e3e5cba71b227771b971b6845130d3fa85eaefe5f5de58f60bc3994531f";
+const sessionId = "ext-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
 
 // --- Listener MUST be at top level, registered synchronously ---
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  console.log('[BG] Got message:', message.type, 'from tab:', sender.tab?.id);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("[BG] Got message:", message.type, "from tab:", sender.tab?.id);
 
-  if (message.type === 'GET_REPLY') {
-    console.log('[BG] Processing GET_REPLY, text length:', message.text?.length);
+  if (message.type === "GET_REPLY") {
+    console.log("[BG] Processing GET_REPLY, text length:", message.text?.length);
 
     // Check which backend to use
-    chrome.storage.local.get('backend', function (result) {
-      const backend = result.backend || 'thinking';
-      console.log('[BG] Using backend:', backend);
+    chrome.storage.local.get("backend", (result) => {
+      const backend = result.backend || "thinking";
+      console.log("[BG] Using backend:", backend);
 
       let fetchFn;
-      if (backend === 'alfred') {
-        fetchFn = doAlfredFetch(message.text, message.platform, message.replyMode, message.fullPage);
+      if (backend === "alfred") {
+        fetchFn = doAlfredFetch(
+          message.text,
+          message.platform,
+          message.replyMode,
+          message.fullPage,
+        );
       } else {
-        const webhookUrl = WEBHOOKS[backend] || WEBHOOKS.thinking;
-        fetchFn = doFetch(webhookUrl, message.text, message.platform, message.replyMode, message.pageUrl, message.pageTitle, message.fullPage);
+        const webhookUrl = CONFIG.WEBHOOKS[backend] || CONFIG.WEBHOOKS.thinking;
+        fetchFn = doFetch(
+          webhookUrl,
+          message.text,
+          message.platform,
+          message.replyMode,
+          message.pageUrl,
+          message.pageTitle,
+          message.fullPage,
+        );
       }
 
       fetchFn
-        .then(function (res) {
+        .then((res) => {
           res.backend = backend;
-          console.log('[BG] Fetch success, sending response');
+          console.log("[BG] Fetch success, sending response");
           sendResponse(res);
         })
-        .catch(function (err) {
-          console.error('[BG] Fetch error:', err.message);
+        .catch((err) => {
+          console.error("[BG] Fetch error:", err.message);
           // Auto-fallback: if n8n fails, try Alfred
-          if (backend !== 'alfred') {
-            console.log('[BG] ' + backend + ' failed, falling back to Alfred...');
+          if (backend !== "alfred") {
+            console.log("[BG] " + backend + " failed, falling back to Alfred...");
             doAlfredFetch(message.text, message.platform, message.replyMode, message.fullPage)
-              .then(function (res) {
+              .then((res) => {
                 res.fallback = true;
-                res.backend = 'alfred';
+                res.backend = "alfred";
                 sendResponse(res);
               })
-              .catch(function (err2) {
-                sendResponse({ success: false, error: 'Both backends failed. ' + backend + ': ' + err.message + ', Alfred: ' + err2.message });
+              .catch((err2) => {
+                sendResponse({
+                  success: false,
+                  error:
+                    "Both backends failed. " +
+                    backend +
+                    ": " +
+                    err.message +
+                    ", Alfred: " +
+                    err2.message,
+                });
               });
           } else {
             sendResponse({ success: false, error: err.message });
@@ -62,12 +77,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
 
-  if (message.type === 'ANALYZE_CHAT') {
-    console.log('[BG] Analyze & Chat request');
+  if (message.type === "ANALYZE_CHAT") {
+    console.log("[BG] Analyze & Chat request");
     const tabId = sender.tab?.id;
 
     // Generate a unique session ID for this chat
-    const chatSessionId = 'ext-chat-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
+    const chatSessionId =
+      "ext-chat-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
 
     // Store context in session storage so the side panel can pick it up
     chrome.storage.session.set({
@@ -77,22 +93,25 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         pageUrl: message.pageUrl,
         pageTitle: message.pageTitle,
         scrapedData: message.scrapedData,
-        selectedText: message.selectedText
-      }
+        selectedText: message.selectedText,
+      },
     });
 
     // Open the side panel
     if (tabId) {
-      chrome.sidePanel.open({ tabId: tabId }).then(() => {
-        console.log('[BG] Side panel opened for chat mode');
-      }).catch(err => {
-        console.error('[BG] Side panel error:', err);
-      });
+      chrome.sidePanel
+        .open({ tabId: tabId })
+        .then(() => {
+          console.log("[BG] Side panel opened for chat mode");
+        })
+        .catch((err) => {
+          console.error("[BG] Side panel error:", err);
+        });
     } else {
-      chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+      chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
         if (tabs[0]) {
-          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(err => {
-            console.error('[BG] Side panel fallback error:', err);
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
+            console.error("[BG] Side panel fallback error:", err);
           });
         }
       });
@@ -102,26 +121,27 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
 
-  if (message.type === 'COACH_CHAT_SEND') {
-    console.log('[BG] Coach chat send, sessionId:', message.sessionId);
+  if (message.type === "COACH_CHAT_SEND") {
+    console.log("[BG] Coach chat send, sessionId:", message.sessionId);
 
     doCoachFetch(message.chatInput, message.sessionId)
-      .then(function (result) {
-        console.log('[BG] Coach chat success');
+      .then((result) => {
+        console.log("[BG] Coach chat success");
         sendResponse(result);
       })
-      .catch(function (err) {
-        console.error('[BG] Coach chat error:', err.message);
+      .catch((err) => {
+        console.error("[BG] Coach chat error:", err.message);
         sendResponse({ success: false, error: err.message });
       });
 
     return true;
   }
 
-  if (message.type === 'ANALYZE_SCORE') {
-    console.log('[BG] Analyze & Score request');
+  if (message.type === "ANALYZE_SCORE") {
+    console.log("[BG] Analyze & Score request");
     const tabId = sender.tab?.id;
-    const scoreSessionId = 'ext-score-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
+    const scoreSessionId =
+      "ext-score-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
 
     // Store scoring context for the side panel
     chrome.storage.session.set({
@@ -131,22 +151,25 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         pageUrl: message.pageUrl,
         pageTitle: message.pageTitle,
         scrapedData: message.scrapedData,
-        selectedText: message.selectedText
-      }
+        selectedText: message.selectedText,
+      },
     });
 
     // Open the side panel
     if (tabId) {
-      chrome.sidePanel.open({ tabId: tabId }).then(() => {
-        console.log('[BG] Side panel opened for score mode');
-      }).catch(err => {
-        console.error('[BG] Side panel error:', err);
-      });
+      chrome.sidePanel
+        .open({ tabId: tabId })
+        .then(() => {
+          console.log("[BG] Side panel opened for score mode");
+        })
+        .catch((err) => {
+          console.error("[BG] Side panel error:", err);
+        });
     } else {
-      chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+      chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
         if (tabs[0]) {
-          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(err => {
-            console.error('[BG] Side panel fallback error:', err);
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
+            console.error("[BG] Side panel fallback error:", err);
           });
         }
       });
@@ -156,73 +179,76 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
 
-  if (message.type === 'SCORE_CONVERSATION') {
-    console.log('[BG] Score conversation, sessionId:', message.sessionId);
+  if (message.type === "SCORE_CONVERSATION") {
+    console.log("[BG] Score conversation, sessionId:", message.sessionId);
 
     doScoreFetch(message.transcript, message.sessionId)
-      .then(function (result) {
-        console.log('[BG] Score success');
+      .then((result) => {
+        console.log("[BG] Score success");
         sendResponse(result);
       })
-      .catch(function (err) {
-        console.error('[BG] Score error:', err.message);
+      .catch((err) => {
+        console.error("[BG] Score error:", err.message);
         sendResponse({ success: false, error: err.message });
       });
 
     return true;
   }
 
-  if (message.type === 'SCRAPE_PAGE') {
-    console.log('[BG] Scrape page request');
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+  if (message.type === "SCRAPE_PAGE") {
+    console.log("[BG] Scrape page request");
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) {
-        sendResponse({ success: false, error: 'No active tab' });
+        sendResponse({ success: false, error: "No active tab" });
         return;
       }
-      chrome.tabs.sendMessage(tabs[0].id, { type: 'SCRAPE_PAGE' }, function (resp) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: "SCRAPE_PAGE" }, (resp) => {
         if (chrome.runtime.lastError) {
-          console.error('[BG] Scrape relay error:', chrome.runtime.lastError.message);
+          console.error("[BG] Scrape relay error:", chrome.runtime.lastError.message);
           sendResponse({ success: false, error: chrome.runtime.lastError.message });
           return;
         }
-        sendResponse(resp || { success: false, error: 'No response from content script' });
+        sendResponse(resp || { success: false, error: "No response from content script" });
       });
     });
     return true;
   }
 
-  if (message.type === 'INSERT_TEXT') {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+  if (message.type === "INSERT_TEXT") {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) {
-        sendResponse({ success: false, error: 'No active tab' });
+        sendResponse({ success: false, error: "No active tab" });
         return;
       }
-      chrome.tabs.sendMessage(tabs[0].id, { type: 'INSERT_TEXT', text: message.text }, function (resp) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: "INSERT_TEXT", text: message.text }, (resp) => {
         if (chrome.runtime.lastError) {
           sendResponse({ success: false, error: chrome.runtime.lastError.message });
           return;
         }
-        sendResponse(resp || { success: false, error: 'No response' });
+        sendResponse(resp || { success: false, error: "No response" });
       });
     });
     return true;
   }
 
-  if (message.type === 'OPEN_SIDE_PANEL') {
-    console.log('[BG] Opening side panel');
+  if (message.type === "OPEN_SIDE_PANEL") {
+    console.log("[BG] Opening side panel");
     const tabId = sender.tab?.id || message.tabId;
     if (tabId) {
-      chrome.sidePanel.open({ tabId: tabId }).then(() => {
-        console.log('[BG] Side panel opened');
-      }).catch(err => {
-        console.error('[BG] Side panel error:', err);
-      });
+      chrome.sidePanel
+        .open({ tabId: tabId })
+        .then(() => {
+          console.log("[BG] Side panel opened");
+        })
+        .catch((err) => {
+          console.error("[BG] Side panel error:", err);
+        });
     } else {
       // Fallback: get active tab
-      chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+      chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
         if (tabs[0]) {
-          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(err => {
-            console.error('[BG] Side panel fallback error:', err);
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
+            console.error("[BG] Side panel fallback error:", err);
           });
         }
       });
@@ -231,161 +257,195 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
 
-  if (message.type === 'SIDE_PANEL_READY') {
-    console.log('[BG] Side panel ready');
+  if (message.type === "SIDE_PANEL_READY") {
+    console.log("[BG] Side panel ready");
     sendResponse({ ok: true });
     return true;
   }
 
-  if (message.type === 'PING') {
-    console.log('[BG] PING received, sending PONG');
+  if (message.type === "PING") {
+    console.log("[BG] PING received, sending PONG");
     sendResponse({ pong: true });
     return true;
   }
 
   // --- Closer Bot Config API handlers ---
-  if (message.type === 'CLOSER_CHECK') {
+  if (message.type === "CLOSER_CHECK") {
     const cid = message.contactId;
-    console.log('[BG] CLOSER_CHECK for', cid);
-    fetch(`${CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      headers: { 'X-API-Key': ALFRED_KEY }
+    console.log("[BG] CLOSER_CHECK for", cid);
+    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+      headers: { "X-API-Key": ALFRED_KEY },
     })
-      .then(r => r.json())
-      .then(data => {
-        const inList = Array.isArray(data.allowed_inboxes) && data.allowed_inboxes.includes(cid);
-        sendResponse({ success: true, whitelisted: inList });
+      .then((r) => r.json())
+      .then((data) => {
+        sendResponse({ success: true, whitelisted: !!data.whitelisted });
       })
-      .catch(err => {
-        console.error('[BG] CLOSER_CHECK error:', err);
+      .catch((err) => {
+        console.error("[BG] CLOSER_CHECK error:", err);
         sendResponse({ success: false, whitelisted: false });
       });
     return true;
   }
 
-  if (message.type === 'CLOSER_ADD') {
+  if (message.type === "CLOSER_ADD") {
     const cid = message.contactId;
-    console.log('[BG] CLOSER_ADD for', cid);
-    fetch(`${CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      method: 'POST',
-      headers: { 'X-API-Key': ALFRED_KEY }
+    console.log("[BG] CLOSER_ADD for", cid);
+    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+      method: "POST",
+      headers: { "X-API-Key": ALFRED_KEY },
     })
-      .then(r => r.json())
-      .then(data => sendResponse({ success: true, data }))
-      .catch(err => {
-        console.error('[BG] CLOSER_ADD error:', err);
+      .then((r) => r.json())
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => {
+        console.error("[BG] CLOSER_ADD error:", err);
         sendResponse({ success: false });
       });
     return true;
   }
 
-  if (message.type === 'CLOSER_REMOVE') {
+  if (message.type === "CLOSER_REMOVE") {
     const cid = message.contactId;
-    console.log('[BG] CLOSER_REMOVE for', cid);
-    fetch(`${CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      method: 'DELETE',
-      headers: { 'X-API-Key': ALFRED_KEY }
+    console.log("[BG] CLOSER_REMOVE for", cid);
+    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": ALFRED_KEY },
     })
-      .then(r => r.json())
-      .then(data => sendResponse({ success: true, data }))
-      .catch(err => {
-        console.error('[BG] CLOSER_REMOVE error:', err);
+      .then((r) => r.json())
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => {
+        console.error("[BG] CLOSER_REMOVE error:", err);
         sendResponse({ success: false });
       });
     return true;
   }
 });
 
-console.log('[BG] Message listener registered');
+console.log("[BG] Message listener registered");
+
+// === Revio SPA Contact Switch Detection (primary) ===
+chrome.webNavigation.onHistoryStateUpdated.addListener(
+  (details) => {
+    if (details.frameId !== 0) return; // main frame only
+    const match = details.url.match(/\/inbox\/([a-f0-9]{24})/);
+    if (!match) return;
+    chrome.runtime
+      .sendMessage({ type: "REVIO_CONTACT_CHANGED", contactId: match[1] })
+      .catch(() => {});
+  },
+  { url: [{ hostContains: "sbccrm.com" }] },
+);
 
 // --- Streaming port handler ---
-chrome.runtime.onConnect.addListener(function (port) {
-  if (port.name === 'stream-reply') {
-    console.log('[BG] Stream reply port connected');
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "stream-reply") {
+    console.log("[BG] Stream reply port connected");
 
-    port.onMessage.addListener(function (msg) {
-      if (msg.type === 'START_STREAM') {
-        console.log('[BG] Starting streaming reply');
-        chrome.storage.local.get('backend', function (result) {
-          const backend = result.backend || 'thinking';
-          console.log('[BG] Streaming with backend:', backend);
+    port.onMessage.addListener((msg) => {
+      if (msg.type === "START_STREAM") {
+        console.log("[BG] Starting streaming reply");
+        chrome.storage.local.get("backend", (result) => {
+          const backend = result.backend || "thinking";
+          console.log("[BG] Streaming with backend:", backend);
 
-          if (backend === 'alfred') {
-            doAlfredStreamFetch(port, msg.text, msg.platform, msg.replyMode, msg.fullPage)
-              .catch(function (err) {
-                console.error('[BG] Alfred stream error:', err.message);
-                port.postMessage({ type: 'ERROR', error: err.message });
-              });
+          if (backend === "alfred") {
+            doAlfredStreamFetch(port, msg.text, msg.platform, msg.replyMode, msg.fullPage).catch(
+              (err) => {
+                console.error("[BG] Alfred stream error:", err.message);
+                port.postMessage({ type: "ERROR", error: err.message });
+              },
+            );
           } else {
-            const webhookUrl = WEBHOOKS[backend] || WEBHOOKS.thinking;
-            doStreamFetch(port, webhookUrl, backend, msg.text, msg.platform, msg.replyMode, msg.pageUrl, msg.pageTitle, msg.fullPage)
-              .catch(function (err) {
-                console.error('[BG] Stream error:', err.message);
-                console.log('[BG] Stream failed, falling back to Alfred');
-                doAlfredFetch(msg.text, msg.platform, msg.replyMode, msg.fullPage)
-                  .then(function (res) {
-                    res.backend = 'alfred';
-                    res.fallback = true;
-                    port.postMessage({ type: 'COMPLETE', data: res });
-                  })
-                  .catch(function (err2) {
-                    port.postMessage({ type: 'ERROR', error: 'Both backends failed. ' + err.message + ', Alfred: ' + err2.message });
+            const webhookUrl = CONFIG.WEBHOOKS[backend] || CONFIG.WEBHOOKS.thinking;
+            doStreamFetch(
+              port,
+              webhookUrl,
+              backend,
+              msg.text,
+              msg.platform,
+              msg.replyMode,
+              msg.pageUrl,
+              msg.pageTitle,
+              msg.fullPage,
+            ).catch((err) => {
+              console.error("[BG] Stream error:", err.message);
+              console.log("[BG] Stream failed, falling back to Alfred");
+              doAlfredFetch(msg.text, msg.platform, msg.replyMode, msg.fullPage)
+                .then((res) => {
+                  res.backend = "alfred";
+                  res.fallback = true;
+                  port.postMessage({ type: "COMPLETE", data: res });
+                })
+                .catch((err2) => {
+                  port.postMessage({
+                    type: "ERROR",
+                    error: "Both backends failed. " + err.message + ", Alfred: " + err2.message,
                   });
-              });
+                });
+            });
           }
         });
       }
     });
   }
 
-  if (port.name === 'stream-coach') {
-    console.log('[BG] Stream coach port connected');
+  if (port.name === "stream-coach") {
+    console.log("[BG] Stream coach port connected");
 
-    port.onMessage.addListener(function (msg) {
-      if (msg.type === 'COACH_SEND') {
-        console.log('[BG] Starting streaming coach, sessionId:', msg.sessionId);
-        doCoachStreamFetch(port, msg.chatInput, msg.sessionId)
-          .catch(function (err) {
-            console.error('[BG] Coach stream error:', err.message);
-            port.postMessage({ type: 'ERROR', error: err.message });
-          });
+    port.onMessage.addListener((msg) => {
+      if (msg.type === "COACH_SEND") {
+        console.log("[BG] Starting streaming coach, sessionId:", msg.sessionId);
+        doCoachStreamFetch(port, msg.chatInput, msg.sessionId).catch((err) => {
+          console.error("[BG] Coach stream error:", err.message);
+          port.postMessage({ type: "ERROR", error: err.message });
+        });
       }
     });
   }
 });
 
 // --- Streaming fetch for n8n ---
-async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMode, pageUrl, pageTitle, fullPage) {
+async function doStreamFetch(
+  port,
+  webhookUrl,
+  backend,
+  text,
+  platform,
+  replyMode,
+  pageUrl,
+  pageTitle,
+  fullPage,
+) {
   const chatInput = buildChatInput(text, platform, replyMode, pageUrl, pageTitle, fullPage);
   const payload = {
     chatInput: JSON.stringify(chatInput),
     sessionId: sessionId,
-    type: 'text',
-    mode: 'select_reply'
+    type: "text",
+    mode: "select_reply",
   };
 
-  console.log('[BG] Stream fetching:', webhookUrl);
+  console.log("[BG] Stream fetching:", webhookUrl);
 
   const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error('Webhook returned ' + response.status);
+    throw new Error("Webhook returned " + response.status);
   }
 
-  const contentType = response.headers.get('content-type') || '';
-  console.log('[BG] Stream response content-type:', contentType);
+  const contentType = response.headers.get("content-type") || "";
+  console.log("[BG] Stream response content-type:", contentType);
 
   // Check if response is SSE stream
-  if (contentType.includes('text/event-stream') || contentType.includes('text/plain')) {
-    console.log('[BG] SSE/text stream detected, reading chunks...');
+  if (contentType.includes("text/event-stream") || contentType.includes("text/plain")) {
+    console.log("[BG] SSE/text stream detected, reading chunks...");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let accumulated = '';
+    let accumulated = "";
 
-    port.postMessage({ type: 'STREAM_START', backend: backend });
+    port.postMessage({ type: "STREAM_START", backend: backend });
 
     while (true) {
       const { done, value } = await reader.read();
@@ -394,22 +454,22 @@ async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMod
       const chunk = decoder.decode(value, { stream: true });
 
       // Parse SSE format: "data: ...\n\n"
-      const lines = chunk.split('\n');
+      const lines = chunk.split("\n");
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
+        if (line.startsWith("data: ")) {
           const data = line.slice(6);
-          if (data === '[DONE]') continue;
+          if (data === "[DONE]") continue;
           try {
             const parsed = JSON.parse(data);
-            const token = parsed.token || parsed.text || parsed.content || parsed.output || '';
+            const token = parsed.token || parsed.text || parsed.content || parsed.output || "";
             if (token) {
               accumulated += token;
-              port.postMessage({ type: 'STREAM_CHUNK', token: token, accumulated: accumulated });
+              port.postMessage({ type: "STREAM_CHUNK", token: token, accumulated: accumulated });
             }
           } catch (e) {
             if (data.trim()) {
               accumulated += data;
-              port.postMessage({ type: 'STREAM_CHUNK', token: data, accumulated: accumulated });
+              port.postMessage({ type: "STREAM_CHUNK", token: data, accumulated: accumulated });
             }
           }
         }
@@ -418,18 +478,18 @@ async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMod
 
     const result = parseN8nOutput(accumulated);
     result.backend = backend;
-    port.postMessage({ type: 'STREAM_END', data: result });
+    port.postMessage({ type: "STREAM_END", data: result });
     return;
   }
 
   // Read response body through stream reader (handles both NDJSON and regular JSON)
-  console.log('[BG] Reading response body via stream reader...');
+  console.log("[BG] Reading response body via stream reader...");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let accumulated = '';
-  let fullBody = '';
+  let accumulated = "";
+  let fullBody = "";
   let streamStarted = false;
-  let buffer = '';
+  let buffer = "";
 
   try {
     while (true) {
@@ -441,8 +501,8 @@ async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMod
       buffer += chunk;
 
       // Process complete lines looking for NDJSON
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -450,12 +510,16 @@ async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMod
 
         try {
           const parsed = JSON.parse(trimmed);
-          if (parsed.type === 'begin' && !streamStarted) {
-            port.postMessage({ type: 'STREAM_START', backend: backend });
+          if (parsed.type === "begin" && !streamStarted) {
+            port.postMessage({ type: "STREAM_START", backend: backend });
             streamStarted = true;
-          } else if (parsed.type === 'item' && parsed.content) {
+          } else if (parsed.type === "item" && parsed.content) {
             accumulated += parsed.content;
-            port.postMessage({ type: 'STREAM_CHUNK', token: parsed.content, accumulated: accumulated });
+            port.postMessage({
+              type: "STREAM_CHUNK",
+              token: parsed.content,
+              accumulated: accumulated,
+            });
           }
         } catch (e) {
           // Not NDJSON line — part of regular JSON body
@@ -463,69 +527,69 @@ async function doStreamFetch(port, webhookUrl, backend, text, platform, replyMod
       }
     }
   } catch (err) {
-    console.error('[BG] Stream read error:', err.message);
+    console.error("[BG] Stream read error:", err.message);
   }
 
   // Handle remaining buffer
   if (buffer.trim()) {
     try {
       const parsed = JSON.parse(buffer.trim());
-      if (parsed.type === 'item' && parsed.content) {
+      if (parsed.type === "item" && parsed.content) {
         accumulated += parsed.content;
-        port.postMessage({ type: 'STREAM_CHUNK', token: parsed.content, accumulated: accumulated });
+        port.postMessage({ type: "STREAM_CHUNK", token: parsed.content, accumulated: accumulated });
       }
     } catch (e) {}
   }
 
   if (streamStarted && accumulated) {
     // NDJSON streaming completed
-    console.log('[BG] NDJSON stream complete, accumulated:', accumulated.length, 'chars');
+    console.log("[BG] NDJSON stream complete, accumulated:", accumulated.length, "chars");
     const result = parseN8nOutput(accumulated);
     result.backend = backend;
-    port.postMessage({ type: 'STREAM_END', data: result });
+    port.postMessage({ type: "STREAM_END", data: result });
   } else {
     // Regular JSON response
-    console.log('[BG] Non-NDJSON response, parsing as JSON');
+    console.log("[BG] Non-NDJSON response, parsing as JSON");
     try {
       const data = JSON.parse(fullBody);
       const result = parseN8nResponse(data);
       result.backend = backend;
-      port.postMessage({ type: 'COMPLETE', data: result });
+      port.postMessage({ type: "COMPLETE", data: result });
     } catch (e) {
       const result = parseN8nOutput(fullBody);
       result.backend = backend;
-      port.postMessage({ type: 'COMPLETE', data: result });
+      port.postMessage({ type: "COMPLETE", data: result });
     }
   }
 }
 
 // --- Streaming coach fetch (NDJSON from n8n Chat Trigger) ---
 async function doCoachStreamFetch(port, chatInputText, chatSessionId) {
-  console.log('[BG] doCoachStreamFetch called, input length:', chatInputText.length);
+  console.log("[BG] doCoachStreamFetch called, input length:", chatInputText.length);
 
   const payload = {
     chatInput: chatInputText,
     sessionId: chatSessionId,
-    type: 'text'
+    type: "text",
   };
 
-  const response = await fetch(COACH_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const response = await fetch(CONFIG.COACH_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error('Coach webhook returned ' + response.status);
+    throw new Error("Coach webhook returned " + response.status);
   }
 
   // Read response body through stream reader (n8n Chat Trigger sends NDJSON)
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let accumulated = '';
-  let fullBody = '';
+  let accumulated = "";
+  let fullBody = "";
   let streamStarted = false;
-  let buffer = '';
+  let buffer = "";
 
   try {
     while (true) {
@@ -537,8 +601,8 @@ async function doCoachStreamFetch(port, chatInputText, chatSessionId) {
       buffer += chunk;
 
       // Process complete NDJSON lines
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -546,12 +610,16 @@ async function doCoachStreamFetch(port, chatInputText, chatSessionId) {
 
         try {
           const parsed = JSON.parse(trimmed);
-          if (parsed.type === 'begin' && !streamStarted) {
-            port.postMessage({ type: 'STREAM_START' });
+          if (parsed.type === "begin" && !streamStarted) {
+            port.postMessage({ type: "STREAM_START" });
             streamStarted = true;
-          } else if (parsed.type === 'item' && parsed.content) {
+          } else if (parsed.type === "item" && parsed.content) {
             accumulated += parsed.content;
-            port.postMessage({ type: 'STREAM_CHUNK', token: parsed.content, accumulated: accumulated });
+            port.postMessage({
+              type: "STREAM_CHUNK",
+              token: parsed.content,
+              accumulated: accumulated,
+            });
           }
         } catch (e) {
           // Not NDJSON line
@@ -559,36 +627,36 @@ async function doCoachStreamFetch(port, chatInputText, chatSessionId) {
       }
     }
   } catch (err) {
-    console.error('[BG] Coach stream read error:', err.message);
+    console.error("[BG] Coach stream read error:", err.message);
   }
 
   // Handle remaining buffer
   if (buffer.trim()) {
     try {
       const parsed = JSON.parse(buffer.trim());
-      if (parsed.type === 'item' && parsed.content) {
+      if (parsed.type === "item" && parsed.content) {
         accumulated += parsed.content;
-        port.postMessage({ type: 'STREAM_CHUNK', token: parsed.content, accumulated: accumulated });
+        port.postMessage({ type: "STREAM_CHUNK", token: parsed.content, accumulated: accumulated });
       }
     } catch (e) {}
   }
 
   if (streamStarted && accumulated) {
-    console.log('[BG] Coach NDJSON stream complete, accumulated:', accumulated.length, 'chars');
+    console.log("[BG] Coach NDJSON stream complete, accumulated:", accumulated.length, "chars");
     const cleaned = unwrapCoachResponse({ output: accumulated });
-    port.postMessage({ type: 'STREAM_END', botResponse: cleaned });
+    port.postMessage({ type: "STREAM_END", botResponse: cleaned });
   } else if (fullBody) {
     // Not NDJSON — try to parse as regular JSON
-    console.log('[BG] Coach non-NDJSON response, parsing as JSON');
+    console.log("[BG] Coach non-NDJSON response, parsing as JSON");
     try {
       const data = JSON.parse(fullBody);
       const botResponse = unwrapCoachResponse(data);
-      port.postMessage({ type: 'COMPLETE', botResponse: botResponse });
+      port.postMessage({ type: "COMPLETE", botResponse: botResponse });
     } catch (e) {
-      port.postMessage({ type: 'COMPLETE', botResponse: fullBody });
+      port.postMessage({ type: "COMPLETE", botResponse: fullBody });
     }
   } else {
-    port.postMessage({ type: 'ERROR', error: 'Empty response from coach' });
+    port.postMessage({ type: "ERROR", error: "Empty response from coach" });
   }
 }
 
@@ -597,25 +665,25 @@ async function doCoachStreamFetch(port, chatInputText, chatSessionId) {
 function buildChatInput(text, platform, replyMode, pageUrl, pageTitle, fullPage) {
   const chatInput = {
     selectedText: text,
-    platform: platform || 'other',
-    replyMode: replyMode || 'auto',
-    pageUrl: pageUrl || '',
-    pageTitle: pageTitle || '',
-    userContext: null
+    platform: platform || "other",
+    replyMode: replyMode || "auto",
+    pageUrl: pageUrl || "",
+    pageTitle: pageTitle || "",
+    userContext: null,
   };
 
   if (fullPage) {
     chatInput.fullPage = {
-      type: fullPage.type || 'generic',
-      contactName: fullPage.contactName || '',
-      subject: fullPage.subject || '',
-      conversation: fullPage.conversation || '',
+      type: fullPage.type || "generic",
+      contactName: fullPage.contactName || "",
+      subject: fullPage.subject || "",
+      conversation: fullPage.conversation || "",
       messageCount: fullPage.messageCount || 0,
-      highlightedText: fullPage.highlightedText || ''
+      highlightedText: fullPage.highlightedText || "",
     };
-    chatInput.inputMode = 'analyze';
+    chatInput.inputMode = "analyze";
   } else {
-    chatInput.inputMode = 'select';
+    chatInput.inputMode = "select";
   }
 
   return chatInput;
@@ -623,7 +691,10 @@ function buildChatInput(text, platform, replyMode, pageUrl, pageTitle, fullPage)
 
 function parseN8nOutput(raw) {
   // Strip code fences
-  raw = raw.replace(/^```[\w]*\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+  raw = raw
+    .replace(/^```[\w]*\s*\n?/i, "")
+    .replace(/\n?\s*```\s*$/i, "")
+    .trim();
 
   // Try parse as structured JSON
   try {
@@ -634,24 +705,26 @@ function parseN8nOutput(raw) {
         structured: true,
         analysis: parsed.analysis || null,
         messages: parsed.messages,
-        reasoning: parsed.reasoning || null
+        reasoning: parsed.reasoning || null,
       };
     }
-  } catch (e) { /* not JSON */ }
+  } catch (e) {
+    /* not JSON */
+  }
 
   // Clean escaped chars
-  raw = raw.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  raw = raw.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
   return {
     success: true,
     structured: false,
-    raw: raw
+    raw: raw,
   };
 }
 
 function parseN8nResponse(data) {
-  let raw = '';
-  if (data.output && typeof data.output === 'string') {
+  let raw = "";
+  if (data.output && typeof data.output === "string") {
     raw = data.output;
   } else if (Array.isArray(data) && data[0]?.output) {
     raw = data[0].output;
@@ -662,59 +735,63 @@ function parseN8nResponse(data) {
 }
 
 async function doFetch(webhookUrl, text, platform, replyMode, pageUrl, pageTitle, fullPage) {
-  console.log('[BG] doFetch called', webhookUrl, fullPage ? '(full page mode)' : '(selection mode)');
+  console.log(
+    "[BG] doFetch called",
+    webhookUrl,
+    fullPage ? "(full page mode)" : "(selection mode)",
+  );
 
   const chatInput = {
     selectedText: text,
-    platform: platform || 'other',
-    replyMode: replyMode || 'auto',
-    pageUrl: pageUrl || '',
-    pageTitle: pageTitle || '',
-    userContext: null
+    platform: platform || "other",
+    replyMode: replyMode || "auto",
+    pageUrl: pageUrl || "",
+    pageTitle: pageTitle || "",
+    userContext: null,
   };
 
   // Include full page scraped data if available
   if (fullPage) {
     chatInput.fullPage = {
-      type: fullPage.type || 'generic',
-      contactName: fullPage.contactName || '',
-      subject: fullPage.subject || '',
-      conversation: fullPage.conversation || '',
+      type: fullPage.type || "generic",
+      contactName: fullPage.contactName || "",
+      subject: fullPage.subject || "",
+      conversation: fullPage.conversation || "",
       messageCount: fullPage.messageCount || 0,
-      highlightedText: fullPage.highlightedText || ''
+      highlightedText: fullPage.highlightedText || "",
     };
-    chatInput.inputMode = 'analyze';
+    chatInput.inputMode = "analyze";
   } else {
-    chatInput.inputMode = 'select';
+    chatInput.inputMode = "select";
   }
 
   const payload = {
     chatInput: JSON.stringify(chatInput),
     sessionId: sessionId,
-    type: 'text',
-    mode: 'select_reply'
+    type: "text",
+    mode: "select_reply",
   };
 
-  console.log('[BG] Fetching:', webhookUrl);
+  console.log("[BG] Fetching:", webhookUrl);
 
   const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
-  console.log('[BG] Response status:', response.status);
+  console.log("[BG] Response status:", response.status);
 
   if (!response.ok) {
-    throw new Error('Webhook returned ' + response.status);
+    throw new Error("Webhook returned " + response.status);
   }
 
   const data = await response.json();
-  console.log('[BG] Response data keys:', Object.keys(data));
+  console.log("[BG] Response data keys:", Object.keys(data));
 
   // Unwrap - n8n wraps in {output: "..."}
-  let raw = '';
-  if (data.output && typeof data.output === 'string') {
+  let raw = "";
+  if (data.output && typeof data.output === "string") {
     raw = data.output;
   } else if (Array.isArray(data) && data[0]?.output) {
     raw = data[0].output;
@@ -723,32 +800,35 @@ async function doFetch(webhookUrl, text, platform, replyMode, pageUrl, pageTitle
   }
 
   // Strip code fences
-  raw = raw.replace(/^```[\w]*\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+  raw = raw
+    .replace(/^```[\w]*\s*\n?/i, "")
+    .replace(/\n?\s*```\s*$/i, "")
+    .trim();
 
   // Try parse as structured JSON
   try {
     const parsed = JSON.parse(raw);
     if (parsed.messages && Array.isArray(parsed.messages)) {
-      console.log('[BG] Parsed structured response:', parsed.messages.length, 'messages');
+      console.log("[BG] Parsed structured response:", parsed.messages.length, "messages");
       return {
         success: true,
         structured: true,
         analysis: parsed.analysis || null,
         messages: parsed.messages,
-        reasoning: parsed.reasoning || null
+        reasoning: parsed.reasoning || null,
       };
     }
   } catch (e) {
-    console.log('[BG] Not JSON, using as plain text');
+    console.log("[BG] Not JSON, using as plain text");
   }
 
   // Clean escaped chars
-  raw = raw.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  raw = raw.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
   return {
     success: true,
     structured: false,
-    raw: raw
+    raw: raw,
   };
 }
 
@@ -756,7 +836,7 @@ async function doFetch(webhookUrl, text, platform, replyMode, pageUrl, pageTitle
 
 function deriveDealStage(tags) {
   if (!tags || tags.length === 0) return null;
-  const pipelineTags = tags.filter(t => t && typeof t === 'object' && t.pipeline_tag);
+  const pipelineTags = tags.filter((t) => t && typeof t === "object" && t.pipeline_tag);
   if (pipelineTags.length === 0) return null;
   pipelineTags.sort((a, b) => (b.funnel_order ?? 0) - (a.funnel_order ?? 0));
   return pipelineTags[0].name;
@@ -765,61 +845,63 @@ function deriveDealStage(tags) {
 function buildRevioPayload(fullPage, replyMode) {
   const cd = fullPage.contactDetails || {};
   const messages = fullPage.messages || [];
-  if (messages.length === 0) throw new Error('buildRevioPayload: no messages');
+  if (messages.length === 0) throw new Error("buildRevioPayload: no messages");
   const lastMsg = messages[messages.length - 1];
 
   const modeTagMap = {
-    objection: 'objection_handling', follow_up: 'follow_up',
-    close: 'closing', re_engage: 're_engagement'
+    objection: "objection_handling",
+    follow_up: "follow_up",
+    close: "closing",
+    re_engage: "re_engagement",
   };
 
   return {
     contact_id: fullPage.contactId,
-    contact_name: fullPage.contactName || 'Prospect',
-    channel: cd.channel || lastMsg?.channel || 'sms',
+    contact_name: fullPage.contactName || "Prospect",
+    channel: cd.channel || lastMsg?.channel || "sms",
     rocket_selling_score: cd.score ?? null,
     rocket_selling_current_box: cd.currentBox ?? null,
     ai_notes: cd.notes || null,
     deal_stage: deriveDealStage(cd.tags) || modeTagMap[replyMode] || null,
-    tags: (cd.tags || []).map(t => typeof t === 'string' ? t : t.name),
+    tags: (cd.tags || []).map((t) => (typeof t === "string" ? t : t.name)),
     messages: messages,
-    latest_message_direction: lastMsg?.direction || 'received',
+    latest_message_direction: lastMsg?.direction || "received",
     latest_message_timestamp: lastMsg?.timestamp || new Date().toISOString(),
-    force_cached: false
+    force_cached: false,
   };
 }
 
 async function handleAlfredResponse(response) {
-  console.log('[BG] Alfred response status:', response.status);
+  console.log("[BG] Alfred response status:", response.status);
 
-  if (response.status === 401) throw new Error('Alfred API: Invalid API key');
+  if (response.status === 401) throw new Error("Alfred API: Invalid API key");
   if (response.status === 422) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error('Alfred API validation error: ' + JSON.stringify(errData));
+    throw new Error("Alfred API validation error: " + JSON.stringify(errData));
   }
-  if (!response.ok) throw new Error('Alfred API returned ' + response.status);
+  if (!response.ok) throw new Error("Alfred API returned " + response.status);
 
   const data = await response.json();
-  console.log('[BG] Alfred response keys:', Object.keys(data));
+  console.log("[BG] Alfred response keys:", Object.keys(data));
 
   let suggestionMessages = data.suggestion_messages || [];
   if (suggestionMessages.length === 0 && data.suggestion) {
-    suggestionMessages = data.suggestion.split('\n').filter(s => s.trim());
+    suggestionMessages = data.suggestion.split("\n").filter((s) => s.trim());
   }
   if (suggestionMessages.length === 0) {
-    suggestionMessages = ['No suggestion generated'];
+    suggestionMessages = ["No suggestion generated"];
   }
 
   const analysis = {
-    stage: data.phase || 'unknown',
-    energy: data.confidence ? Math.round(data.confidence * 100) + '% confidence' : '',
-    realMeaning: data.reasoning || ''
+    stage: data.phase || "unknown",
+    energy: data.confidence ? Math.round(data.confidence * 100) + "% confidence" : "",
+    realMeaning: data.reasoning || "",
   };
 
-  let reasoning = data.reasoning || '';
+  let reasoning = data.reasoning || "";
   if (data.warning) {
-    reasoning = 'Warning: ' + data.warning;
-    if (data.warning_fix) reasoning += '\nSuggested fix: ' + data.warning_fix;
+    reasoning = "Warning: " + data.warning;
+    if (data.warning_fix) reasoning += "\nSuggested fix: " + data.warning_fix;
   }
 
   return {
@@ -828,23 +910,23 @@ async function handleAlfredResponse(response) {
     analysis: analysis,
     messages: suggestionMessages,
     reasoning: reasoning || null,
-    source: data.source || 'alfred',
-    backend: 'alfred'
+    source: data.source || "alfred",
+    backend: "alfred",
   };
 }
 
 // --- Alfred's backend fetch ---
 async function doAlfredFetch(text, platform, replyMode, fullPage) {
-  console.log('[BG] doAlfredFetch called');
+  console.log("[BG] doAlfredFetch called");
 
   // Revio high-quality path: use real API data when available
   if (fullPage?.contactId && fullPage?.messages?.length > 0) {
     const payload = buildRevioPayload(fullPage, replyMode);
-    console.log('[BG] Alfred Revio payload:', JSON.stringify(payload).substring(0, 300));
-    const response = await fetch(ALFRED_API + '/suggest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Copilot-Key': ALFRED_KEY },
-      body: JSON.stringify(payload)
+    console.log("[BG] Alfred Revio payload:", JSON.stringify(payload).substring(0, 300));
+    const response = await fetch(CONFIG.SMARTRIP_API + "/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+      body: JSON.stringify(payload),
     });
     return handleAlfredResponse(response);
   }
@@ -852,30 +934,43 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
   // Generic text-parsing path (non-Revio)
   // Map our platform names to Alfred's channel names
   const channelMap = {
-    linkedin: 'linkedin', instagram: 'instagram', facebook: 'facebook',
-    gmail: 'email', x: 'sms', other: 'sms'
+    linkedin: "linkedin",
+    instagram: "instagram",
+    facebook: "facebook",
+    gmail: "email",
+    x: "sms",
+    other: "sms",
   };
-  const channel = channelMap[platform] || 'sms';
+  const channel = channelMap[platform] || "sms";
 
   // Build messages array from conversation text
   const messages = [];
-  const convText = fullPage?.conversation || text || '';
-  const lines = convText.split(/\n\n+/).filter(l => l.trim());
+  const convText = fullPage?.conversation || text || "";
+  const lines = convText.split(/\n\n+/).filter((l) => l.trim());
 
   lines.forEach((line, i) => {
     // Try to detect direction from labels like "REP:", "PROSPECT:", "ContactName:", etc.
-    let direction = i % 2 === 0 ? 'inbound' : 'outbound';
+    let direction = i % 2 === 0 ? "inbound" : "outbound";
     let msgText = line.trim();
 
     if (/^(PROSPECT|Contact|Lead):/i.test(msgText)) {
-      direction = 'inbound';
-      msgText = msgText.replace(/^(PROSPECT|Contact|Lead):\s*/i, '');
+      direction = "inbound";
+      msgText = msgText.replace(/^(PROSPECT|Contact|Lead):\s*/i, "");
     } else if (/^(REP|You|Me|Sales):/i.test(msgText)) {
-      direction = 'outbound';
-      msgText = msgText.replace(/^(REP|You|Me|Sales):\s*/i, '');
-    } else if (fullPage?.contactName && msgText.toLowerCase().startsWith(fullPage.contactName.toLowerCase())) {
-      direction = 'inbound';
-      msgText = msgText.replace(new RegExp('^' + fullPage.contactName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:\\s*', 'i'), '');
+      direction = "outbound";
+      msgText = msgText.replace(/^(REP|You|Me|Sales):\s*/i, "");
+    } else if (
+      fullPage?.contactName &&
+      msgText.toLowerCase().startsWith(fullPage.contactName.toLowerCase())
+    ) {
+      direction = "inbound";
+      msgText = msgText.replace(
+        new RegExp(
+          "^" + fullPage.contactName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*:\\s*",
+          "i",
+        ),
+        "",
+      );
     }
 
     if (msgText.length > 2) {
@@ -883,7 +978,7 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
         text: msgText,
         direction: direction,
         timestamp: new Date(Date.now() - (lines.length - i) * 60000).toISOString(),
-        channel: channel
+        channel: channel,
       });
     }
   });
@@ -892,9 +987,9 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
   if (messages.length === 0 && text) {
     messages.push({
       text: text,
-      direction: 'inbound',
+      direction: "inbound",
       timestamp: new Date().toISOString(),
-      channel: channel
+      channel: channel,
     });
   }
 
@@ -902,33 +997,33 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
 
   // Map replyMode to Alfred's phase hint via tags
   const modeTagMap = {
-    objection: 'objection_handling',
-    follow_up: 'follow_up',
-    close: 'closing',
-    re_engage: 're_engagement'
+    objection: "objection_handling",
+    follow_up: "follow_up",
+    close: "closing",
+    re_engage: "re_engagement",
   };
 
   const payload = {
-    contact_id: '000000000000000000000000',
-    contact_name: fullPage?.contactName || 'Prospect',
+    contact_id: "000000000000000000000000",
+    contact_name: fullPage?.contactName || "Prospect",
     channel: channel,
     rocket_selling_score: null,
-    rocket_selling_current_box: 'First',
+    rocket_selling_current_box: "First",
     ai_notes: null,
-    deal_stage: modeTagMap[replyMode] || 'discovery',
-    tags: replyMode !== 'auto' ? [modeTagMap[replyMode] || replyMode] : [],
+    deal_stage: modeTagMap[replyMode] || "discovery",
+    tags: replyMode !== "auto" ? [modeTagMap[replyMode] || replyMode] : [],
     messages: messages,
-    latest_message_direction: lastMsg?.direction || 'inbound',
+    latest_message_direction: lastMsg?.direction || "inbound",
     latest_message_timestamp: lastMsg?.timestamp || new Date().toISOString(),
-    force_cached: false
+    force_cached: false,
   };
 
-  console.log('[BG] Alfred payload:', JSON.stringify(payload).substring(0, 300));
+  console.log("[BG] Alfred payload:", JSON.stringify(payload).substring(0, 300));
 
-  const response = await fetch(ALFRED_API + '/suggest', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Copilot-Key': ALFRED_KEY },
-    body: JSON.stringify(payload)
+  const response = await fetch(CONFIG.SMARTRIP_API + "/suggest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+    body: JSON.stringify(payload),
   });
 
   return handleAlfredResponse(response);
@@ -938,9 +1033,9 @@ async function doAlfredFetch(text, platform, replyMode, fullPage) {
 function parseSSE(block) {
   let eventType = null;
   let dataStr = null;
-  for (const line of block.trim().split('\n')) {
-    if (line.startsWith('event: ')) eventType = line.slice(7);
-    else if (line.startsWith('data: ')) dataStr = line.slice(6);
+  for (const line of block.trim().split("\n")) {
+    if (line.startsWith("event: ")) eventType = line.slice(7);
+    else if (line.startsWith("data: ")) dataStr = line.slice(6);
   }
   if (!eventType || !dataStr) return null;
   try {
@@ -952,39 +1047,52 @@ function parseSSE(block) {
 
 // --- Alfred's streaming fetch (SSE from /suggest/stream) ---
 async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
-  console.log('[BG] doAlfredStreamFetch called');
+  console.log("[BG] doAlfredStreamFetch called");
 
   let payload;
 
   // Revio high-quality path: build from real API data
   if (fullPage?.contactId && fullPage?.messages?.length > 0) {
     payload = buildRevioPayload(fullPage, replyMode);
-    console.log('[BG] Alfred Revio stream payload:', JSON.stringify(payload).substring(0, 300));
+    console.log("[BG] Alfred Revio stream payload:", JSON.stringify(payload).substring(0, 300));
   } else {
     // Generic text-parsing path (non-Revio)
     const channelMap = {
-      linkedin: 'linkedin', instagram: 'instagram', facebook: 'facebook',
-      gmail: 'email', x: 'sms', other: 'sms'
+      linkedin: "linkedin",
+      instagram: "instagram",
+      facebook: "facebook",
+      gmail: "email",
+      x: "sms",
+      other: "sms",
     };
-    const channel = channelMap[platform] || 'sms';
+    const channel = channelMap[platform] || "sms";
 
     const messages = [];
-    const convText = fullPage?.conversation || text || '';
-    const lines = convText.split(/\n\n+/).filter(l => l.trim());
+    const convText = fullPage?.conversation || text || "";
+    const lines = convText.split(/\n\n+/).filter((l) => l.trim());
 
     lines.forEach((line, i) => {
-      let direction = i % 2 === 0 ? 'inbound' : 'outbound';
+      let direction = i % 2 === 0 ? "inbound" : "outbound";
       let msgText = line.trim();
 
       if (/^(PROSPECT|Contact|Lead):/i.test(msgText)) {
-        direction = 'inbound';
-        msgText = msgText.replace(/^(PROSPECT|Contact|Lead):\s*/i, '');
+        direction = "inbound";
+        msgText = msgText.replace(/^(PROSPECT|Contact|Lead):\s*/i, "");
       } else if (/^(REP|You|Me|Sales):/i.test(msgText)) {
-        direction = 'outbound';
-        msgText = msgText.replace(/^(REP|You|Me|Sales):\s*/i, '');
-      } else if (fullPage?.contactName && msgText.toLowerCase().startsWith(fullPage.contactName.toLowerCase())) {
-        direction = 'inbound';
-        msgText = msgText.replace(new RegExp('^' + fullPage.contactName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:\\s*', 'i'), '');
+        direction = "outbound";
+        msgText = msgText.replace(/^(REP|You|Me|Sales):\s*/i, "");
+      } else if (
+        fullPage?.contactName &&
+        msgText.toLowerCase().startsWith(fullPage.contactName.toLowerCase())
+      ) {
+        direction = "inbound";
+        msgText = msgText.replace(
+          new RegExp(
+            "^" + fullPage.contactName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*:\\s*",
+            "i",
+          ),
+          "",
+        );
       }
 
       if (msgText.length > 2) {
@@ -992,7 +1100,7 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
           text: msgText,
           direction: direction,
           timestamp: new Date(Date.now() - (lines.length - i) * 60000).toISOString(),
-          channel: channel
+          channel: channel,
         });
       }
     });
@@ -1000,63 +1108,63 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
     if (messages.length === 0 && text) {
       messages.push({
         text: text,
-        direction: 'inbound',
+        direction: "inbound",
         timestamp: new Date().toISOString(),
-        channel: channel
+        channel: channel,
       });
     }
 
     const lastMsg = messages[messages.length - 1];
 
     const modeTagMap = {
-      objection: 'objection_handling',
-      follow_up: 'follow_up',
-      close: 'closing',
-      re_engage: 're_engagement'
+      objection: "objection_handling",
+      follow_up: "follow_up",
+      close: "closing",
+      re_engage: "re_engagement",
     };
 
     payload = {
-      contact_id: '000000000000000000000000',
-      contact_name: fullPage?.contactName || 'Prospect',
+      contact_id: "000000000000000000000000",
+      contact_name: fullPage?.contactName || "Prospect",
       channel: channel,
       rocket_selling_score: null,
-      rocket_selling_current_box: 'First',
+      rocket_selling_current_box: "First",
       ai_notes: null,
-      deal_stage: modeTagMap[replyMode] || 'discovery',
-      tags: replyMode !== 'auto' ? [modeTagMap[replyMode] || replyMode] : [],
+      deal_stage: modeTagMap[replyMode] || "discovery",
+      tags: replyMode !== "auto" ? [modeTagMap[replyMode] || replyMode] : [],
       messages: messages,
-      latest_message_direction: lastMsg?.direction || 'inbound',
+      latest_message_direction: lastMsg?.direction || "inbound",
       latest_message_timestamp: lastMsg?.timestamp || new Date().toISOString(),
-      force_cached: false
+      force_cached: false,
     };
 
-    console.log('[BG] Alfred stream payload:', JSON.stringify(payload).substring(0, 300));
+    console.log("[BG] Alfred stream payload:", JSON.stringify(payload).substring(0, 300));
   }
 
-  const response = await fetch(ALFRED_API + '/suggest/stream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Copilot-Key': ALFRED_KEY },
-    body: JSON.stringify(payload)
+  const response = await fetch(CONFIG.SMARTRIP_API + "/suggest/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Copilot-Key": ALFRED_KEY },
+    body: JSON.stringify(payload),
   });
 
   if (response.status === 401) {
-    throw new Error('Alfred API: Invalid API key');
+    throw new Error("Alfred API: Invalid API key");
   }
   if (response.status === 422) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error('Alfred API validation error: ' + JSON.stringify(errData));
+    throw new Error("Alfred API validation error: " + JSON.stringify(errData));
   }
   if (!response.ok) {
-    throw new Error('Alfred streaming API returned ' + response.status);
+    throw new Error("Alfred streaming API returned " + response.status);
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '';
-  let accumulated = '';
+  let buffer = "";
+  let accumulated = "";
   let metadata = null;
 
-  port.postMessage({ type: 'STREAM_START', backend: 'alfred' });
+  port.postMessage({ type: "STREAM_START", backend: "alfred" });
 
   try {
     while (true) {
@@ -1064,7 +1172,7 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const blocks = buffer.split('\n\n');
+      const blocks = buffer.split("\n\n");
       buffer = blocks.pop(); // Keep incomplete block in buffer
 
       for (const block of blocks) {
@@ -1073,91 +1181,101 @@ async function doAlfredStreamFetch(port, text, platform, replyMode, fullPage) {
         if (!parsed) continue;
 
         switch (parsed.event) {
-          case 'suggestion_chunk':
-            accumulated += parsed.data.text || '';
-            port.postMessage({ type: 'STREAM_CHUNK', token: parsed.data.text || '', accumulated: accumulated });
+          case "suggestion_chunk":
+            accumulated += parsed.data.text || "";
+            port.postMessage({
+              type: "STREAM_CHUNK",
+              token: parsed.data.text || "",
+              accumulated: accumulated,
+            });
             break;
-          case 'metadata':
+          case "metadata":
             metadata = parsed.data;
             break;
-          case 'error':
-            port.postMessage({ type: 'ERROR', error: parsed.data.message || parsed.data.error || 'Alfred stream error' });
+          case "error":
+            port.postMessage({
+              type: "ERROR",
+              error: parsed.data.message || parsed.data.error || "Alfred stream error",
+            });
             return;
-          case 'done':
+          case "done":
             break;
         }
       }
     }
   } catch (err) {
-    console.error('[BG] Alfred stream read error:', err.message);
+    console.error("[BG] Alfred stream read error:", err.message);
   }
 
   // Build structured result from accumulated text + metadata
-  let suggestionMessages = accumulated.split('\n').filter(s => s.trim());
-  if (suggestionMessages.length === 0) suggestionMessages = ['No suggestion generated'];
+  let suggestionMessages = accumulated.split("\n").filter((s) => s.trim());
+  if (suggestionMessages.length === 0) suggestionMessages = ["No suggestion generated"];
 
   const analysis = {
-    stage: metadata?.phase || 'unknown',
-    energy: metadata?.confidence ? Math.round(metadata.confidence * 100) + '% confidence' : '',
-    realMeaning: metadata?.reasoning || ''
+    stage: metadata?.phase || "unknown",
+    energy: metadata?.confidence ? Math.round(metadata.confidence * 100) + "% confidence" : "",
+    realMeaning: metadata?.reasoning || "",
   };
 
-  let reasoning = metadata?.reasoning || '';
+  let reasoning = metadata?.reasoning || "";
   if (metadata?.warning) {
-    reasoning = 'Warning: ' + metadata.warning;
-    if (metadata?.warning_fix) reasoning += '\nSuggested fix: ' + metadata.warning_fix;
+    reasoning = "Warning: " + metadata.warning;
+    if (metadata?.warning_fix) reasoning += "\nSuggested fix: " + metadata.warning_fix;
   }
 
   port.postMessage({
-    type: 'STREAM_END',
+    type: "STREAM_END",
     data: {
       success: true,
       structured: true,
       analysis: analysis,
       messages: suggestionMessages,
       reasoning: reasoning || null,
-      source: metadata?.source || 'alfred',
-      backend: 'alfred'
-    }
+      source: metadata?.source || "alfred",
+      backend: "alfred",
+    },
   });
 
-  console.log('[BG] Alfred stream complete, accumulated:', accumulated.length, 'chars');
+  console.log("[BG] Alfred stream complete, accumulated:", accumulated.length, "chars");
 }
 
 // --- Coach chat fetch (handles both NDJSON and regular JSON) ---
 async function doCoachFetch(chatInput, chatSessionId) {
-  console.log('[BG] doCoachFetch called, input length:', chatInput.length);
+  console.log("[BG] doCoachFetch called, input length:", chatInput.length);
 
   const payload = {
     chatInput: chatInput,
     sessionId: chatSessionId,
-    type: 'text'
+    type: "text",
   };
 
-  const response = await fetch(COACH_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const response = await fetch(CONFIG.COACH_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error('Coach webhook returned ' + response.status);
+    throw new Error("Coach webhook returned " + response.status);
   }
 
   // Read as text to handle both NDJSON and regular JSON
   const bodyText = await response.text();
-  console.log('[BG] Coach response length:', bodyText.length);
+  console.log("[BG] Coach response length:", bodyText.length);
 
   // Check if NDJSON (n8n Chat Trigger with streaming enabled)
-  if (bodyText.trimStart().startsWith('{"type":"begin"') || bodyText.trimStart().startsWith('{"type":"item"')) {
-    let accumulated = '';
-    const lines = bodyText.split('\n');
+  if (
+    bodyText.trimStart().startsWith('{"type":"begin"') ||
+    bodyText.trimStart().startsWith('{"type":"item"')
+  ) {
+    let accumulated = "";
+    const lines = bodyText.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
         const parsed = JSON.parse(trimmed);
-        if (parsed.type === 'item' && parsed.content) {
+        if (parsed.type === "item" && parsed.content) {
           accumulated += parsed.content;
         }
       } catch (e) {}
@@ -1168,15 +1286,18 @@ async function doCoachFetch(chatInput, chatSessionId) {
 
   // Regular JSON
   const data = JSON.parse(bodyText);
-  console.log('[BG] Coach response keys:', Object.keys(data));
+  console.log("[BG] Coach response keys:", Object.keys(data));
   const botResponse = unwrapCoachResponse(data);
   return { success: true, botResponse: botResponse };
 }
 
 function unwrapCoachResponse(data) {
   function stripFences(s) {
-    if (typeof s !== 'string') return s;
-    return s.replace(/^```[\w]*\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+    if (typeof s !== "string") return s;
+    return s
+      .replace(/^```[\w]*\s*\n?/i, "")
+      .replace(/\n?\s*```\s*$/i, "")
+      .trim();
   }
 
   // Handle array wrapping
@@ -1184,89 +1305,98 @@ function unwrapCoachResponse(data) {
   if (Array.isArray(topLevel)) topLevel = topLevel[0];
 
   // Start with whatever n8n gave us
-  let current = '';
-  if (topLevel && typeof topLevel === 'object') {
-    current = topLevel.output || topLevel.response || topLevel.text || topLevel.botResponse || '';
+  let current = "";
+  if (topLevel && typeof topLevel === "object") {
+    current = topLevel.output || topLevel.response || topLevel.text || topLevel.botResponse || "";
   }
-  if (typeof current !== 'string') current = JSON.stringify(current);
+  if (typeof current !== "string") current = JSON.stringify(current);
 
   // Unwrap loop: strip fences -> parse JSON -> extract .output -> repeat (up to 5 layers)
   for (let i = 0; i < 5; i++) {
     current = stripFences(current);
-    if (!current.startsWith('{') && !current.startsWith('[')) break;
+    if (!current.startsWith("{") && !current.startsWith("[")) break;
     let parsed = null;
-    try { parsed = JSON.parse(current); } catch (e) {
-      try { parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, ' ')); } catch (e2) { /* noop */ }
+    try {
+      parsed = JSON.parse(current);
+    } catch (e) {
+      try {
+        parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, " "));
+      } catch (e2) {
+        /* noop */
+      }
     }
     if (!parsed) break;
     if (Array.isArray(parsed)) parsed = parsed[0];
-    if (!parsed || typeof parsed !== 'object') break;
+    if (!parsed || typeof parsed !== "object") break;
     const next = parsed.output || parsed.response || parsed.text;
-    if (!next || typeof next !== 'string') break;
+    if (!next || typeof next !== "string") break;
     current = next;
   }
 
   current = stripFences(current);
 
   // Regex last resort
-  if (current && current.trim().startsWith('{')) {
+  if (current && current.trim().startsWith("{")) {
     const m = current.match(/"output"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (m) current = m[1];
   }
 
   // Strip leaked internal tool/agent outputs
   current = current
-    .replace(/Calling \w[\w.]* with input:?\s*(\{.*?\}|\(.*?\)|".*?")/gs, '')
-    .replace(/> ?(Entering|Finished) new \w+ chain\.{0,3}/gi, '')
-    .replace(/^(Action|Action Input|Thought|Observation):.*$/gm, '')
-    .replace(/^Tool output:.*$/gm, '')
-    .replace(/^\[[\w_]+\].*$/gm, '')
+    .replace(/Calling \w[\w.]* with input:?\s*(\{.*?\}|\(.*?\)|".*?")/gs, "")
+    .replace(/> ?(Entering|Finished) new \w+ chain\.{0,3}/gi, "")
+    .replace(/^(Action|Action Input|Thought|Observation):.*$/gm, "")
+    .replace(/^Tool output:.*$/gm, "")
+    .replace(/^\[[\w_]+\].*$/gm, "")
     .trim();
 
   // Convert escaped newlines
-  current = current.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  current = current.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
   return current || "Sorry, I couldn't process that. Please try again.";
 }
 
 // --- Scoring fetch (handles both NDJSON and regular JSON) ---
 async function doScoreFetch(transcript, scoreSessionId) {
-  console.log('[BG] doScoreFetch called, transcript length:', transcript.length);
+  console.log("[BG] doScoreFetch called, transcript length:", transcript.length);
 
   const payload = {
     chatInput: transcript,
     sessionId: scoreSessionId,
-    mode: 'scoring',
-    type: 'text'
+    mode: "scoring",
+    type: "text",
   };
 
-  console.log('[BG] Score payload:', JSON.stringify(payload).substring(0, 200));
+  console.log("[BG] Score payload:", JSON.stringify(payload).substring(0, 200));
 
-  const response = await fetch(ROLEPLAY_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const response = await fetch(CONFIG.SCORE_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error('Scoring webhook returned ' + response.status);
+    throw new Error("Scoring webhook returned " + response.status);
   }
 
   // Read as text to handle both NDJSON and regular JSON
   const bodyText = await response.text();
-  console.log('[BG] Score response length:', bodyText.length);
+  console.log("[BG] Score response length:", bodyText.length);
 
   let data;
   // Check if NDJSON (Chat Trigger with streaming enabled)
-  if (bodyText.trimStart().startsWith('{"type":"begin"') || bodyText.trimStart().startsWith('{"type":"item"')) {
-    let accumulated = '';
-    const lines = bodyText.split('\n');
+  if (
+    bodyText.trimStart().startsWith('{"type":"begin"') ||
+    bodyText.trimStart().startsWith('{"type":"item"')
+  ) {
+    let accumulated = "";
+    const lines = bodyText.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
         const parsed = JSON.parse(trimmed);
-        if (parsed.type === 'item' && parsed.content) {
+        if (parsed.type === "item" && parsed.content) {
           accumulated += parsed.content;
         }
       } catch (e) {}
@@ -1276,15 +1406,18 @@ async function doScoreFetch(transcript, scoreSessionId) {
     data = JSON.parse(bodyText);
   }
 
-  console.log('[BG] Score RAW response:', JSON.stringify(data).substring(0, 500));
+  console.log("[BG] Score RAW response:", JSON.stringify(data).substring(0, 500));
 
   // Parse scoring result
   const result = parseScoringResponse(data);
-  console.log('[BG] Parsed scoring result:', result ? ('score=' + result.score + ', metrics=' + result.metrics.length) : 'null');
+  console.log(
+    "[BG] Parsed scoring result:",
+    result ? "score=" + result.score + ", metrics=" + result.metrics.length : "null",
+  );
 
   return {
     success: true,
-    scoringResult: result
+    scoringResult: result,
   };
 }
 
@@ -1296,7 +1429,7 @@ function parseScoringResponse(scoreData) {
   let scoringTakeaways = null;
 
   function extractScoring(obj) {
-    if (!obj || typeof obj !== 'object') return;
+    if (!obj || typeof obj !== "object") return;
     if (obj.score !== undefined) scoringScore = obj.score;
     if (obj.metrics) scoringMetrics = obj.metrics;
     if (obj.feedback) scoringFeedback = obj.feedback;
@@ -1313,103 +1446,138 @@ function parseScoringResponse(scoreData) {
   extractScoring(topLevel);
 
   // Try nested output/response as objects
-  if (!scoringMetrics && topLevel && topLevel.output && typeof topLevel.output === 'object') {
+  if (!scoringMetrics && topLevel && topLevel.output && typeof topLevel.output === "object") {
     extractScoring(topLevel.output);
   }
-  if (!scoringMetrics && topLevel && topLevel.response && typeof topLevel.response === 'object') {
+  if (!scoringMetrics && topLevel && topLevel.response && typeof topLevel.response === "object") {
     extractScoring(topLevel.response);
   }
 
   // Step 2: Deep unwrap string — same 5-layer loop as coach unwrapper
   if (!scoringMetrics) {
-    let current = '';
-    if (topLevel && typeof topLevel === 'object') {
-      current = topLevel.output || topLevel.response || topLevel.text || topLevel.botResponse || '';
+    let current = "";
+    if (topLevel && typeof topLevel === "object") {
+      current = topLevel.output || topLevel.response || topLevel.text || topLevel.botResponse || "";
     }
-    if (typeof current !== 'string') current = JSON.stringify(current);
+    if (typeof current !== "string") current = JSON.stringify(current);
 
     function stripFences(s) {
-      if (typeof s !== 'string') return s;
-      return s.replace(/^```[\w]*\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+      if (typeof s !== "string") return s;
+      return s
+        .replace(/^```[\w]*\s*\n?/i, "")
+        .replace(/\n?\s*```\s*$/i, "")
+        .trim();
     }
 
     // Unwrap loop: strip fences -> parse JSON -> extract .output -> repeat (up to 5 layers)
     for (let i = 0; i < 5; i++) {
       current = stripFences(current);
-      if (!current || (!current.startsWith('{') && !current.startsWith('['))) break;
+      if (!current || (!current.startsWith("{") && !current.startsWith("["))) break;
       let parsed = null;
-      try { parsed = JSON.parse(current); } catch (e) {
-        try { parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, ' ')); } catch (e2) { /* noop */ }
+      try {
+        parsed = JSON.parse(current);
+      } catch (e) {
+        try {
+          parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, " "));
+        } catch (e2) {
+          /* noop */
+        }
       }
       if (!parsed) break;
       if (Array.isArray(parsed)) parsed = parsed[0];
-      if (!parsed || typeof parsed !== 'object') break;
+      if (!parsed || typeof parsed !== "object") break;
 
       // Try extracting scoring from this layer
       extractScoring(parsed);
       if (scoringMetrics) {
-        console.log('[BG] Found scoring data at unwrap layer', i);
+        console.log("[BG] Found scoring data at unwrap layer", i);
         break;
       }
 
       const next = parsed.output || parsed.response || parsed.text;
-      if (!next || typeof next !== 'string') break;
+      if (!next || typeof next !== "string") break;
       current = next;
     }
 
     // Step 3: If still no metrics, try to find JSON in the final unwrapped string
-    if (!scoringMetrics && current && typeof current === 'string') {
+    if (!scoringMetrics && current && typeof current === "string") {
       current = stripFences(current);
-      console.log('[BG] Unwrapped scoring string (first 300):', current.substring(0, 300));
+      console.log("[BG] Unwrapped scoring string (first 300):", current.substring(0, 300));
 
       // Try parsing the whole string as JSON
-      if (current.startsWith('{')) {
+      if (current.startsWith("{")) {
         try {
           const parsed = JSON.parse(current);
           extractScoring(parsed);
         } catch (e) {
           try {
-            const parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, ' '));
+            const parsed = JSON.parse(current.replace(/[\x00-\x1F]/g, " "));
             extractScoring(parsed);
-          } catch (e2) { /* will try regex below */ }
+          } catch (e2) {
+            /* will try regex below */
+          }
         }
       }
 
       // Step 4: Try to find JSON embedded in text (agent might wrap it in explanation)
       if (!scoringMetrics) {
-        const jsonMatch = current.match(/\{[\s\S]*"score"\s*:\s*\d+[\s\S]*"metrics"\s*:\s*\[[\s\S]*\]/);
+        const jsonMatch = current.match(
+          /\{[\s\S]*"score"\s*:\s*\d+[\s\S]*"metrics"\s*:\s*\[[\s\S]*\]/,
+        );
         if (jsonMatch) {
           // Find the matching closing brace
           let jsonStr = jsonMatch[0];
           let braceCount = 0;
           let endIdx = 0;
           for (let i = 0; i < jsonStr.length; i++) {
-            if (jsonStr[i] === '{') braceCount++;
-            if (jsonStr[i] === '}') { braceCount--; if (braceCount === 0) { endIdx = i + 1; break; } }
+            if (jsonStr[i] === "{") braceCount++;
+            if (jsonStr[i] === "}") {
+              braceCount--;
+              if (braceCount === 0) {
+                endIdx = i + 1;
+                break;
+              }
+            }
           }
           if (endIdx > 0) jsonStr = jsonStr.substring(0, endIdx);
 
           try {
             const parsed = JSON.parse(jsonStr);
             extractScoring(parsed);
-            console.log('[BG] Extracted scoring from embedded JSON');
+            console.log("[BG] Extracted scoring from embedded JSON");
           } catch (e) {
             // Last resort: regex extraction
-            console.log('[BG] Trying regex extraction');
+            console.log("[BG] Trying regex extraction");
             const sm = current.match(/"score"\s*:\s*(\d+)/);
-            if (sm) scoringScore = parseInt(sm[1]);
+            if (sm) scoringScore = Number.parseInt(sm[1]);
             const mm = current.match(/"metrics"\s*:\s*(\[[\s\S]*?\](?:\s*\}))/);
-            if (mm) { try { scoringMetrics = JSON.parse(mm[1].replace(/\}$/, '')); } catch (e3) {} }
+            if (mm) {
+              try {
+                scoringMetrics = JSON.parse(mm[1].replace(/\}$/, ""));
+              } catch (e3) {}
+            }
             if (!scoringMetrics) {
               const mm2 = current.match(/"metrics"\s*:\s*(\[[\s\S]*?\])/);
-              if (mm2) { try { scoringMetrics = JSON.parse(mm2[1]); } catch (e3) {} }
+              if (mm2) {
+                try {
+                  scoringMetrics = JSON.parse(mm2[1]);
+                } catch (e3) {}
+              }
             }
             const fm = current.match(/"feedback"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-            if (fm) scoringFeedback = fm[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            if (fm) scoringFeedback = fm[1].replace(/\\"/g, '"').replace(/\\n/g, "\n");
             const pbpm = current.match(/"playByPlay"\s*:\s*(\[[\s\S]*?\])/);
-            if (pbpm) { try { scoringPlayByPlay = JSON.parse(pbpm[1]); } catch (e3) {} }
+            if (pbpm) {
+              try {
+                scoringPlayByPlay = JSON.parse(pbpm[1]);
+              } catch (e3) {}
+            }
             const tam = current.match(/"takeaways"\s*:\s*(\[[\s\S]*?\])/);
-            if (tam) { try { scoringTakeaways = JSON.parse(tam[1]); } catch (e3) {} }
+            if (tam) {
+              try {
+                scoringTakeaways = JSON.parse(tam[1]);
+              } catch (e3) {}
+            }
           }
         }
       }
@@ -1418,17 +1586,31 @@ function parseScoringResponse(scoreData) {
 
   // Fallback defaults if nothing was extracted
   if (!scoringMetrics || scoringScore === undefined) {
-    console.log('[BG] Using fallback scoring defaults');
+    console.log("[BG] Using fallback scoring defaults");
     scoringScore = scoringScore !== undefined ? scoringScore : 15;
     scoringMetrics = [
-      { name: 'Pacing, Pressure & Timing', score: 3, description: 'See analysis for details.' },
-      { name: 'Frame Control & Authority', score: 3, description: 'See analysis for details.' },
-      { name: 'Message Structure & Word Economy', score: 3, description: 'See analysis for details.' },
-      { name: 'Question Strategy & Depth', score: 3, description: 'See analysis for details.' },
-      { name: 'Objection Handling & Close Execution', score: 3, description: 'See analysis for details.' }
+      { name: "Pacing, Pressure & Timing", score: 3, description: "See analysis for details." },
+      { name: "Frame Control & Authority", score: 3, description: "See analysis for details." },
+      {
+        name: "Message Structure & Word Economy",
+        score: 3,
+        description: "See analysis for details.",
+      },
+      { name: "Question Strategy & Depth", score: 3, description: "See analysis for details." },
+      {
+        name: "Objection Handling & Close Execution",
+        score: 3,
+        description: "See analysis for details.",
+      },
     ];
-    scoringTakeaways = ['Review the conversation for specific improvements.'];
-    scoringPlayByPlay = [{ message: 'Your last message', color: 'yellow', note: 'Review metrics for specific feedback.' }];
+    scoringTakeaways = ["Review the conversation for specific improvements."];
+    scoringPlayByPlay = [
+      {
+        message: "Your last message",
+        color: "yellow",
+        note: "Review metrics for specific feedback.",
+      },
+    ];
   }
 
   if (scoringScore !== undefined && scoringMetrics) {
@@ -1437,7 +1619,7 @@ function parseScoringResponse(scoreData) {
       metrics: scoringMetrics,
       playByPlay: scoringPlayByPlay || [],
       takeaways: scoringTakeaways || [],
-      feedback: scoringFeedback || null
+      feedback: scoringFeedback || null,
     };
   }
 
@@ -1445,14 +1627,14 @@ function parseScoringResponse(scoreData) {
 }
 
 // --- Context menu ---
-chrome.runtime.onInstalled.addListener(function () {
-  console.log('[BG] Extension installed/updated');
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("[BG] Extension installed/updated");
   chrome.contextMenus.create({
-    id: 'chatripper-reply',
-    title: 'Get sales reply with ChatRipper',
-    contexts: ['selection']
+    id: "chatripper-reply",
+    title: "Get sales reply with ChatRipper",
+    contexts: ["selection"],
   });
-  chrome.storage.local.get('enabled', function (result) {
+  chrome.storage.local.get("enabled", (result) => {
     if (result.enabled === undefined) chrome.storage.local.set({ enabled: true });
   });
   // Enable side panel
@@ -1460,33 +1642,37 @@ chrome.runtime.onInstalled.addListener(function () {
 });
 
 // Open side panel when extension icon is clicked
-chrome.action.onClicked.addListener(function (tab) {
+chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
-chrome.contextMenus.onClicked.addListener(function (info, tab) {
-  if (info.menuItemId === 'chatripper-reply' && info.selectionText) {
-    chrome.tabs.sendMessage(tab.id, { type: 'CONTEXT_MENU_REPLY', text: info.selectionText });
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "chatripper-reply" && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, { type: "CONTEXT_MENU_REPLY", text: info.selectionText });
   }
 });
 
 // Alt+I hotkey — insert reply into chat
-chrome.commands.onCommand.addListener(function (command) {
-  if (command === 'insert-reply') {
-    console.log('[BG] insert-reply hotkey triggered');
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "insert-reply") {
+    console.log("[BG] insert-reply hotkey triggered");
     // Ask side panel for the current message text
-    chrome.runtime.sendMessage({ type: 'GET_INSERT_TEXT' }, function (resp) {
+    chrome.runtime.sendMessage({ type: "GET_INSERT_TEXT" }, (resp) => {
       if (chrome.runtime.lastError || !resp || !resp.text) {
-        console.log('[BG] No text from side panel');
+        console.log("[BG] No text from side panel");
         return;
       }
       // Send to the active tab's content script
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (!tabs[0]) return;
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'INSERT_TEXT', text: resp.text, replace: true });
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: "INSERT_TEXT",
+          text: resp.text,
+          replace: true,
+        });
       });
     });
   }
 });
 
-console.log('[BG] Service worker ready');
+console.log("[BG] Service worker ready");

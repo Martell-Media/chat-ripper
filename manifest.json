@@ -3,8 +3,13 @@
   "name": "ChatRipper AI",
   "version": "1.0.0",
   "description": "AI-powered sales coaching right in your browser. Highlight any prospect message and get instant reply suggestions.",
-  "permissions": ["storage", "activeTab", "contextMenus", "sidePanel"],
-  "host_permissions": ["https://rigchris.app.n8n.cloud/*", "https://ai-sales-copilot-458007064300.us-east1.run.app/*", "https://backend-production-06c5.up.railway.app/*", "https://app.sbccrm.com/*"],
+  "permissions": ["storage", "activeTab", "contextMenus", "sidePanel", "webNavigation"],
+  "host_permissions": [
+    "https://rigchris.app.n8n.cloud/*",
+    "https://ai-sales-copilot-458007064300.us-east1.run.app/*",
+    "https://backend-production-06c5.up.railway.app/*",
+    "https://app.sbccrm.com/*"
+  ],
   "background": {
     "service_worker": "background/service-worker.js"
   },

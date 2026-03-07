@@ -1,135 +1,93 @@
 # CLAUDE.md
 
-This file provides guidance to AI Assistants when working with Python AI backend projects.
+This file provides guidance to AI Assistants working on the ChatRipper AI Chrome extension.
+
+## What This Is
+
+ChatRipper AI is an internal Chrome MV3 extension for Martell Media's revenue team. It provides AI-powered sales reply suggestions across Revio, LinkedIn, Gmail, Instagram, Facebook, and X.
+
+See `docs/core/prd.md` for full product requirements and `docs/core/add.md` for system architecture.
 
 ## Philosophy
 
-**Code Quality Principles:**
-
-- **Minimize code** - Solve problems with as little code as possible
-- **Self-descriptive code** - Code should be clear without excessive comments
-- **Simple first** - Use basic Python primitives before advanced techniques
-- **Type-safe by default** - Leverage Pydantic for validated data flow
-- **AI-friendly** - Structure code for optimal AI agent comprehension
-
-**Documentation:**
-
-- Code should be self-explanatory through clear naming and structure
-- Add docstrings only when behavior isn't obvious from the code
-- Avoid verbose or redundant comments
-- Document complex algorithms and non-obvious design decisions
+- **Minimize code** — Solve problems with as little code as possible
+- **Self-descriptive code** — Clear naming, minimal comments
+- **Simple first** — Vanilla JS, no frameworks, no build step
+- **Spec before code** — Write implementation spec first
 
 ## Project Structure
 
 ```
-root/
-├── app/                   # Main application code
-│   ├── api/               # FastAPI endpoints and routers
-│   ├── database/          # Database models and sessions
-│   ├── schemas/           # Pydantic models for validation
-│   ├── services/          # Business logic and integrations
-│   ├── workflows/         # AI workflows and orchestrations
-│   ├── alembic/           # Database migrations
-│   ├── config.py          # Configuration and settings
-│   ├── main.py            # Application entry point
-│   ├── .env               # Environment variables (git ignored)
-│   └── .env.example       # Environment template
-├── docker/                # Docker configurations
-│   ├── start.sh           # Start services
-│   ├── stop.sh            # Stop services
-│   └── logs.sh            # View logs
-├── docs/                  # Project documentation (see docs/CLAUDE.md)
-├── playground/            # Quick validation scripts
-├── tests/                 # Test suite (see tests/CLAUDE.md)
-├── pyproject.toml         # Dependencies (managed by UV)
-├── uv.lock                # Locked dependency versions
-└── CLAUDE.md              # AI instructions (this file)
+chat-ripper/
+├── background/           # Service worker (message broker, API gateway)
+├── content/              # Content script (DOM access, Revio API scraping)
+├── sidepanel/            # Side panel UI (reply display, chat, score, agent bar)
+├── popup/                # Extension popup (engine selection)
+├── icons/                # Extension icons
+├── config.js             # Backend URLs (importScripts in service worker)
+├── manifest.json         # Chrome MV3 manifest
+├── tests/                # Vitest unit tests
+├── docs/                 # Project documentation (see docs/CLAUDE.md)
+└── scripts/              # Build/package scripts
 ```
+
+## Three Execution Contexts
+
+The extension runs in three isolated contexts that communicate via message passing:
+
+| Context | File | Role |
+|---------|------|------|
+| Content Script | `content/content.js` | DOM access, Revio API scraping, text insertion |
+| Service Worker | `background/service-worker.js` | Message broker, API gateway, auth headers |
+| Side Panel | `sidepanel/sidepanel.js` | Reply UI, chat/score, agent bar, streaming |
 
 ## Development Workflow
 
-**Follow: Spec → Code → Review**
+1. Edit source files
+2. Extension auto-reloads (dev/hot-reload.js)
+3. Test in browser on Revio or other supported platform
+4. Run `npm test` for unit tests
+5. Run `npm run lint` before committing
 
-1. **Spec** - Write implementation spec before coding
-2. **Code** - Implement following the spec
-3. **Review** - Verify behavior matches spec
+## Code Style
 
-See `docs/CLAUDE.md` for document placement guidelines.
+- Vanilla JavaScript (no TypeScript, no JSX, no build step)
+- Biome for linting and formatting (`npm run lint:fix`)
+- 2-space indentation, 100-char line width
+- No module bundler — files loaded via manifest, `<script>` tags, or `importScripts()`
 
-## Python Standards
+## Testing
 
-**Version:** Python 3.12+
+- Vitest with jsdom environment
+- Chrome APIs mocked in `tests/mocks/chrome.js`
+- Extract testable logic into `*/helpers.js` or `*/utils.js` modules
+- Run: `npm test` or `npm run test:watch`
+- See `tests/` directory for test structure
 
-**Style:**
+## Configuration
 
-- Follow PEP 8
-- Line length: 88 characters
-- Use Ruff for formatting and linting
+- Backend URLs: `config.js` (loaded via `importScripts()` in service worker)
+- API keys: `chrome.storage.local` (set via first-run gate, never in source)
+- Engine preference: `chrome.storage.local` (set via popup)
 
-## Type Hints (MANDATORY)
+## Dependencies
 
-All code must use type hints:
+- No npm runtime dependencies — extension uses vendored libs (`purify.min.js`, `marked.min.js`)
+- Dev dependencies only: Vitest, jsdom, Biome (in `package.json`)
+- Install: `npm install`
 
-```python
-def process_request(user_id: str, data: UserRequest) -> UserResponse:
-    pass
-```
+## Commit Convention
 
-- All function parameters must have type hints
-- All return types must be annotated
-- Use Pydantic models for structured data
-
-## Dependency Management
-
-**CRITICAL: Always use UV commands**
-
-Never manually edit `pyproject.toml` for dependencies.
-
-```bash
-uv add <package>           # Add dependency
-uv add --dev pytest        # Add dev dependency
-uv remove <package>        # Remove dependency
-uv sync                    # Sync environment
-uv run python script.py    # Run in environment
-```
-
-## Docker Commands
-
-```bash
-cd docker
-./start.sh    # Start database and API
-./stop.sh     # Stop all services
-./logs.sh     # View API logs
-```
-
-## Environment Variables
-
-- Store `.env` in `app/` directory
-- Copy `.env.example` to `.env` for setup
-- Use Pydantic Settings for validation
-- Never commit `.env` to git
-
-## Code Patterns
-
-**Favor:**
-
-- Simple functions and classes
-- List/dict comprehensions
-- Built-in functions (`map`, `filter`, `zip`)
-- Pydantic models for data validation
-
-**Avoid:**
-
-- Premature abstraction
-- Deep inheritance
-- Global mutable state
-- Circular imports
+Conventional Commits with WBS task IDs:
+- `feat(A2): add first-run gate`
+- `fix(B2): correct MATCH color threshold`
+- `test(B3): add warning toast tests`
+- `chore: remove Python scaffolding`
 
 ## Key Reminders
 
-- **Read before writing** - Understand existing patterns first
-- **Spec before code** - Write implementation spec first
-- **Type hints everywhere** - Critical for AI understanding
-- **Use UV for dependencies** - Never edit pyproject.toml directly
-- **Check docs/CLAUDE.md** - For document placement
-- **Check tests/CLAUDE.md** - For testing guidelines
+- **Read before writing** — Understand existing patterns first
+- **Spec before code** — Check `docs/specs/` for task specs
+- **Check docs/CLAUDE.md** — For document placement guidelines
+- **No build step** — Files are loaded directly by Chrome, not bundled
+- **Three contexts** — Content script, service worker, and side panel are isolated

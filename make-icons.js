@@ -1,8 +1,8 @@
 // Generates proper PNG icons without any dependencies
 // Uses raw PNG encoding
 
-const fs = require('fs');
-const zlib = require('zlib');
+const fs = require("fs");
+const zlib = require("zlib");
 
 function createPNG(size) {
   const width = size;
@@ -26,7 +26,7 @@ function createPNG(size) {
       [cornerR, cornerR],
       [width - cornerR, cornerR],
       [cornerR, height - cornerR],
-      [width - cornerR, height - cornerR]
+      [width - cornerR, height - cornerR],
     ];
 
     for (const [ccx, ccy] of corners) {
@@ -104,8 +104,8 @@ function encodePNG(width, height, pixels) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;  // bit depth
-  ihdr[9] = 6;  // color type (RGBA)
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type (RGBA)
   ihdr[10] = 0; // compression
   ihdr[11] = 0; // filter
   ihdr[12] = 0; // interlace
@@ -130,27 +130,27 @@ function encodePNG(width, height, pixels) {
     return Buffer.concat([len, typeBuffer, data, crc]);
   }
 
-  const ihdrChunk = makeChunk('IHDR', ihdr);
-  const idatChunk = makeChunk('IDAT', compressed);
-  const iendChunk = makeChunk('IEND', Buffer.alloc(0));
+  const ihdrChunk = makeChunk("IHDR", ihdr);
+  const idatChunk = makeChunk("IDAT", compressed);
+  const iendChunk = makeChunk("IEND", Buffer.alloc(0));
 
   return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
 }
 
 // CRC32 for PNG
 function crc32(buf) {
-  let crc = 0xFFFFFFFF;
+  let crc = 0xffffffff;
   for (let i = 0; i < buf.length; i++) {
     crc ^= buf[i];
     for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
     }
   }
-  return (crc ^ 0xFFFFFFFF) >>> 0;
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 // Generate all sizes
-[16, 48, 128].forEach(size => {
+[16, 48, 128].forEach((size) => {
   const png = createPNG(size);
   fs.writeFileSync(`icons/icon${size}.png`, png);
   console.log(`Created icon${size}.png (${png.length} bytes)`);
