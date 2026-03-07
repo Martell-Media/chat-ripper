@@ -263,7 +263,8 @@ The smartrip analysis panel has terminology and layout issues.
 - Key context: KB content is ALWAYS in the prompt regardless of score. Score = relevance of match, not presence/absence. Backend threshold: 0.4 = brain_b vs raw_context.
 - Add warning as distinct amber-styled sp-analysis-row (only when warning exists). Shows warning text + "Fix: [suggested fix]"
 - Remove "Why this works" section -- reasoning is in READ, warning has own row. No duplication.
-- Deeprip/quickrip: no changes (they don't return analysis/reasoning/warnings)
+- Deeprip/quickrip: no changes (they don't return analysis/reasoning/warnings). Streaming DOM retains "Energy" label for these engines — different metric, different backend field name.
+<!-- Updated 2026-03-07: B2 implemented (commit d4f1fec). Data contract changed: service worker now passes raw `match` float (0-1) instead of pre-formatted `energy` string, plus `warning`/`warningFix` as separate fields. Analysis rendering extracted to `sidepanel/helpers.js` (formatMatchValue, buildAnalysisHtml) for testability. -->
 
 ### 7.2 Closer-Bot Insert Warning (Launch)
 
@@ -424,13 +425,15 @@ Backend API URLs scoped in host_permissions. `close.alfredloh.com` added for clo
 
 **Test structure:**
 <!-- Updated 2026-03-07: Added A3 bearer-header tests -->
+<!-- Updated 2026-03-07: Added B2 analysis-panel tests -->
 ```
 tests/
 ├── mocks/
 │   └── chrome.js           # Chrome API stubs (storage.local, runtime, session)
 └── unit/
     ├── first-run-gate.test.js   # A2 — gate display, key storage, reset
-    └── bearer-header.test.js    # A3 — auth helpers, key revocation, error shape
+    ├── bearer-header.test.js    # A3 — auth helpers, key revocation, error shape
+    └── analysis-panel.test.js   # B2 — MATCH label, colors, warning row, tooltip, XSS
 ```
 
 **Chrome mock** (`tests/mocks/chrome.js`): Stubs `chrome.storage.local` (get/set/remove), `chrome.storage.session`, and `chrome.runtime` (sendMessage, connect). Storage is reset between tests via `beforeEach`.
@@ -498,8 +501,8 @@ Not realistic for a solo developer with a Chrome extension. Manual testing is th
 | First-run API key setup gate | Implemented |
 | Remove hardcoded ALFRED_KEY + wire Bearer auth | Implemented |
 | Privacy policy (CWS requirement) | **TODO** |
-| Restrict content_scripts to known domains | **TODO** |
-| Smartrip analysis panel redesign (MATCH rename, color coding, warning row, remove duplication) | **TODO** |
+| Restrict content_scripts to known domains | Implemented |
+| Smartrip analysis panel redesign (MATCH rename, color coding, warning row, remove duplication) | Implemented |
 | Closer-bot insert warning toast | **TODO** |
 | Domain-restricted CWS installation | **TODO** |
 | CWS unlisted submission | **TODO** |
@@ -558,7 +561,8 @@ ChatRipper shows the agent bar as informational. It does NOT block reply generat
 | Infrastructure | Railway | Railway | Google Cloud Run |
 | Speed | ~8s | ~4s | ~6s |
 | KB grounded | Yes (Chris's KB) | Yes (Chris's KB) | Yes (Alfie's KB via Pinecone) |
-| Analysis output | Reply only | Reply only | Reply + STAGE + MATCH + READ + warning (launch) |
+<!-- Updated 2026-03-07: Clarified "Reply only" and Energy vs Match distinction -->
+| Analysis output | Reply only (no analysis panel; streaming DOM retains "Energy" label if backend ever returns it) | Reply only (same as deeprip) | Reply + STAGE + MATCH + READ + warning (launch). "Match" = KB cosine similarity, color-coded green/yellow/red. |
 | Authentication | None | None | Per-rep API key (launch) |
 | Data logging | Unknown | Unknown | SQLite dashboard_store |
 | Alfie can debug | No | No | Yes |

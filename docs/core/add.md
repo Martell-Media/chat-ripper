@@ -90,7 +90,7 @@ The extension runs in three isolated execution contexts with distinct capabiliti
 |---------|------|-----|------------------|
 | Content Script | `content/content.js` | ~1460 | DOM access, Revio API scraping, platform detection, text selection, reply insertion |
 | Service Worker | `background/service-worker.js` + `background/auth.js` | ~1700 + 16 | Message broker, API gateway to all backends, auth header injection, key validation, key revocation, auto-fallback |
-| Side Panel | `sidepanel/sidepanel.js` | ~1900 | Reply display, chat/score UI, agent bar, streaming display, API key gate, storage change listener, state management |
+| Side Panel | `sidepanel/sidepanel.js` + `sidepanel/helpers.js` | ~1900 + 47 | Reply display, chat/score UI, agent bar, streaming display, API key gate, storage change listener, state management. `helpers.js` extracts analysis rendering logic (`formatMatchValue`, `buildAnalysisHtml`) for testability — loaded via `<script>` before `sidepanel.js`. |
 
 ### 2.2 Message Passing
 
@@ -462,7 +462,8 @@ KB matches injected into LLM prompt
 
 - Chrome Web Store, unlisted listing
 - Domain-restricted to `@danmartell.com` Google Workspace
-- Content scripts restricted to known domains (B1 launch task)
+<!-- Updated 2026-03-07: B1 implemented (commit e392956) -->
+- Content scripts restricted to 12 domain patterns covering 8 platforms (B1 implemented). `web_accessible_resources` matches the same patterns. `close.alfredloh.com` added to `host_permissions`.
 - No public discoverability
 
 ### 6.3 Data Privacy
@@ -675,6 +676,8 @@ Benefits:
 | Per-rep API keys | hackathon | ✅ Deployed (A1) | Auth middleware, key management, dashboard per-rep filtering. 178 tests. |
 | First-run API key gate | chat-ripper | ✅ Implemented (A2) | Side panel gate, service worker validation handler, key storage. 5 tests. |
 | Remove ALFRED_KEY + Bearer | chat-ripper | ✅ Implemented (A3) | Per-rep Bearer auth on smartrip, closer-bot key to config, 403 auto-detection, onChanged listener. 5 tests. |
+| Restrict content scripts | chat-ripper | ✅ Implemented (B1) | 12 domain patterns replace `<all_urls>` in content_scripts and web_accessible_resources. `close.alfredloh.com` added to host_permissions. |
+| Analysis panel redesign | chat-ripper | ✅ Implemented (B2) | MATCH label (smartrip only), color-coded confidence, warning row, "Why this works" removed. Analysis helpers extracted to `sidepanel/helpers.js`. Service worker passes raw `match` float + `warning`/`warningFix`. 18 tests. |
 | Pinecone v2→v3 fix | hackathon | Active | Fix stale index name in discovery pipeline |
 | Per-rep bot attribution | closer-bot | Post-launch | Bot calls attributed to activating rep |
 

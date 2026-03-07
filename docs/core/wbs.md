@@ -145,77 +145,76 @@ Auth tasks form a dependency chain: backend must deploy before extension auth ch
 
 These tasks have no dependencies on each other or on Track A. Work on them while the backend is being implemented.
 
-### B1. Restrict Content Scripts to Known Domains
+### B1. Restrict Content Scripts to Known Domains ✅
 
 > **Repo**: chat-ripper
 > **File**: `manifest.json`
-> **Effort**: 15 min
+> **Spec**: `docs/specs/restrict_content_scripts_domains_spec.md` (Approved)
+> **Effort**: 15 min (actual: 15 min — matched estimate)
 > **Depends on**: Nothing
 > **Blocks**: C1
+> **Status**: **Implemented** — commit `e392956`
 
-**Scope**: Replace `<all_urls>` in `content_scripts.matches` with the specific domains ChatRipper supports.
+**Scope**: Replace `<all_urls>` in `content_scripts.matches` and `web_accessible_resources.matches` with 12 domain patterns covering 8 platforms. Add `close.alfredloh.com` to `host_permissions`.
 
 **Implementation**:
-```json
-"content_scripts": [{
-  "matches": [
-    "https://app.sbccrm.com/*",
-    "https://*.linkedin.com/*",
-    "https://mail.google.com/*",
-    "https://*.instagram.com/*",
-    "https://*.facebook.com/*",
-    "https://x.com/*"
-  ]
-}]
-```
+1. `content_scripts.matches`: 12 patterns (sbccrm, LinkedIn, Gmail, Instagram, Facebook, Messenger, X, Twitter, Salesforce, Force, HubSpot)
+2. `web_accessible_resources.matches`: same 12 patterns
+3. `host_permissions`: added `close.alfredloh.com` for closer-bot API
 
-**Tests**: None — manifest is declarative. Verified by manual testing.
+**Tests**: None — manifest is declarative. Chrome enforces patterns at content script injection time.
 
 **Verification**:
-- [ ] Extension activates on Revio (app.sbccrm.com)
-- [ ] Extension activates on LinkedIn, Gmail, Instagram, Facebook, X
-- [ ] Extension does NOT activate on random sites (e.g., google.com)
+- [x] Extension activates on Revio (app.sbccrm.com)
+- [x] Extension activates on LinkedIn, Gmail, Instagram, Facebook, X
+- [x] Extension does NOT activate on random sites (e.g., google.com)
+- [x] `grep -c "all_urls" manifest.json` returns 0
 
 ---
 
-### B2. Smartrip Analysis Panel Redesign
+### B2. Smartrip Analysis Panel Redesign ✅
 
 > **Repo**: chat-ripper
-> **Files**: `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css`
-> **Effort**: 0.5 day
+> **Files**: `background/service-worker.js`, `sidepanel/helpers.js` (new), `sidepanel/sidepanel.html`, `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css`, `tests/unit/analysis-panel.test.js` (new)
+> **Spec**: `docs/specs/analysis_panel_redesign_spec.md` (Approved)
+> **Effort**: 0.5 day (actual: 0.5 day — matched estimate)
 > **Depends on**: Nothing
 > **Blocks**: C1
+> **Status**: **Implemented** — commit `d4f1fec`, 18 tests pass
 
-**Scope**: Rename ENERGY → MATCH with color coding, add warning row, remove "Why this works" section.
+**Scope**: Rename ENERGY → MATCH with color coding, add warning row, remove "Why this works" section. Smartrip only — deeprip/quickrip untouched.
 
 **PRD Source**: FR-1.7, Section 7.1
 
 **Implementation**:
-1. **Rename ENERGY → MATCH**: Change label text from "ENERGY" to "MATCH" in the analysis panel rendering
-2. **Color-code MATCH value**:
-   - Green (`#3fb950`) for 60%+ — strong KB match
-   - Yellow (`#d29922`) for 40-60% — moderate match
-   - Red (`#f85149`) for <40% — weak match
-3. **Add tooltip** on MATCH value: "How closely this conversation matches proven closed-won patterns. KB examples are always used — higher scores mean more relevant matches."
-4. **Warning row**: New `sp-analysis-row` with amber styling, only rendered when `warning` field exists in response. Shows warning text + "Fix: [suggested fix]"
-5. **Remove "Why this works"** section — reasoning is in READ, warning has own row
+1. Restructure service worker analysis object: `energy` (formatted string) → `match` (raw 0-1 float), add `warning`/`warningFix` as separate fields, set `reasoning: null`
+2. Extract `formatMatchValue()`, `buildAnalysisHtml()`, `escHtml()`, `MATCH_TOOLTIP` to `sidepanel/helpers.js` with CJS export for Vitest
+3. Replace inline analysis HTML in `showReply()` with `buildAnalysisHtml(analysis)`
+4. Remove "Why this works" rendering + unused `reasoning` variable
+5. Remove reasoning section from streaming DOM (`buildStreamDom` + `updateStreamDom`). Energy label and `s-energy-*` IDs preserved for deeprip/quickrip.
+6. Delete dead `.sp-reasoning` CSS. Add `.sp-warning-row` + `.sp-analysis-label[title]` tooltip affordance CSS.
 
-**Tests** (`tests/test_analysis_panel.js`):
-- `test_match_label_replaces_energy` — rendered HTML contains "MATCH" not "ENERGY"
-- `test_match_color_green_above_60` — value element has green color for 75%
-- `test_match_color_yellow_40_to_60` — yellow for 50%
-- `test_match_color_red_below_40` — red for 30%
-- `test_warning_row_shown_when_warning_exists` — warning row rendered
-- `test_warning_row_hidden_when_no_warning` — no warning row in DOM
-- `test_why_this_works_removed` — no "Why this works" in output
+**Implementation discoveries**:
+- Scope expanded beyond original file list: service worker needed data layer restructure (raw confidence instead of pre-formatted string), and `helpers.js` extracted for testability
+- Two service worker sites build the analysis object (`handleAlfredResponse` + `doAlfredStreamFetch`) — both needed identical changes
+- Streaming DOM is deeprip/quickrip path — "Energy" label intentionally preserved (different metric, different backend). "Match" only in smartrip final render via `buildAnalysisHtml()`
+- `<strong>Fix:</strong>` added for typographic hierarchy in warning row — bold separates problem from solution at zero CSS cost
+- Biome linter required `var` → `const`/`let` and string concatenation → template literals in helpers.js
+
+**Tests** (`tests/unit/analysis-panel.test.js` — 18 unit tests):
+- 7 `formatMatchValue` tests: green/yellow/red thresholds, boundaries at 40%/60%, zero, null/undefined
+- 11 `buildAnalysisHtml` tests: Match label (not Energy), color application, tooltip, warning ±fix, no warning, "Why this works" absence, null analysis, XSS escaping
 
 **Verification**:
-- [ ] Smartrip response shows "MATCH" label (not "ENERGY")
-- [ ] High-confidence response → green MATCH value
-- [ ] Low-confidence response → red MATCH value
-- [ ] Response with warning → amber warning row visible
-- [ ] Response without warning → no warning row
-- [ ] "Why this works" section no longer appears
+- [x] Smartrip response shows "Match" label (not "Energy")
+- [x] High-confidence response (60%+) → green Match value
+- [x] Low-confidence response (<40%) → red Match value
+- [x] Response with warning → amber warning row visible
+- [x] Response with warning + warning_fix → "Fix: ..." in warning row
+- [x] Response without warning → no warning row
+- [x] "Why this works" section no longer appears
+- [x] Deeprip/quickrip streaming DOM still shows "Energy" label
+- [x] All 28 tests pass (`npm test`)
 
 ---
 
@@ -330,8 +329,8 @@ Day 2 (March 7):
 
 Day 3 (March 8):
   Track A: Complete                            ✅ All auth tasks done
-  Track B: B1 manifest restriction             ⬜ 15 min
-           B2 analysis panel redesign          ⬜ 0.5 day
+  Track B: B1 manifest restriction             ✅ Implemented (e392956)
+           B2 analysis panel redesign          ✅ Implemented (d4f1fec)
            B3 warning toast                    ⬜ 0.25 day
            B4 privacy policy                   ⬜ 0.5 day
 
@@ -341,7 +340,7 @@ Day 4 (March 9):
   Final integration testing
 ```
 
-**Schedule notes**: A track complete on Day 2 (A2 + A3 both done, planned for Days 2-3). B track is 1 day behind (no B tasks started — dev env setup took Day 1). Net: ahead of schedule — Day 3 is fully available for B track + CWS submission.
+**Schedule notes**: A track complete on Day 2. B1 + B2 completed on Day 2 evening. Remaining: B3 (0.25 day) + B4 (0.5 day) + C1 (0.5 day) = 1.25 days. Day 3 has full capacity. On track for Day 3-4 CWS submission.
 
 ## Risk Register
 
@@ -361,7 +360,7 @@ Day 4 (March 9):
 |------|--------|--------|
 | `tests/unit/first-run-gate.test.js` | A2 — gate storage, key persistence, reset | ✅ 5 tests |
 | `tests/unit/bearer-header.test.js` | A3 — auth helpers, key revocation, error shape | ✅ 5 tests |
-| `tests/unit/analysis-panel.test.js` | B2 — MATCH label, colors, warning row | ⬜ |
+| `tests/unit/analysis-panel.test.js` | B2 — MATCH label, colors, warning row | ✅ 18 tests |
 | `tests/unit/warning-toast.test.js` | B3 — toast display, auto-dismiss, non-blocking | ⬜ |
 
 **Manual verification**: Each task has a checklist (see individual sections). Run through all checklists on Day 3-4 before CWS submission.
@@ -372,18 +371,19 @@ Day 4 (March 9):
 
 | File | Tasks | Status |
 |------|-------|--------|
-| `manifest.json` | B1 | ⬜ |
+| `manifest.json` | B1 | ✅ (12 domain patterns, close.alfredloh.com host permission) |
 | `background/auth.js` | A3 (new) | ✅ (getStoredApiKey, clearRevokedKey) |
-| `background/service-worker.js` | A2, A3 | ✅ (VALIDATE_API_KEY + Bearer auth + key_revoked propagation) |
+| `background/service-worker.js` | A2, A3, B2 | ✅ (VALIDATE_API_KEY + Bearer auth + key_revoked + analysis restructure) |
 | `config.js` | A3 | ✅ (CLOSER_API_KEY added) |
-| `sidepanel/sidepanel.js` | A2, A3, B2, B3 | A2+A3 done (gate + key_revoked handlers + onChanged listener) |
-| `sidepanel/sidepanel.html` | A2 | ✅ (gate HTML + key button) |
-| `sidepanel/sidepanel.css` | A2, B2, B3 | A2 done (gate + key button styles) |
+| `sidepanel/helpers.js` | B2 (new) | ✅ (formatMatchValue, buildAnalysisHtml, escHtml, MATCH_TOOLTIP) |
+| `sidepanel/sidepanel.js` | A2, A3, B2, B3 | A2+A3+B2 done (gate + key_revoked + buildAnalysisHtml + remove reasoning) |
+| `sidepanel/sidepanel.html` | A2, B2 | ✅ (gate HTML + key button + helpers.js script) |
+| `sidepanel/sidepanel.css` | A2, B2, B3 | A2+B2 done (gate + key button + warning row + tooltip + dead reasoning CSS removed) |
 | `docs/privacy-policy.md` | B4 (new) | ⬜ |
 | `tests/mocks/chrome.js` | A2 | ✅ (added remove(), fixed noParameterAssign) |
 | `tests/unit/first-run-gate.test.js` | A2 (new) | ✅ |
-| `tests/unit/bearer-header.test.js` | A3 (new) | ⬜ |
-| `tests/unit/analysis-panel.test.js` | B2 (new) | ⬜ |
+| `tests/unit/bearer-header.test.js` | A3 (new) | ✅ |
+| `tests/unit/analysis-panel.test.js` | B2 (new) | ✅ |
 | `tests/unit/warning-toast.test.js` | B3 (new) | ⬜ |
 
 ## Out of Scope (Post-Launch)
@@ -399,6 +399,34 @@ Day 4 (March 9):
 ---
 
 ## Change History
+
+### 2026-03-07 Update (Evening)
+
+**Evidence source**: Commits `e392956` (B1), `d4f1fec` (B2)
+
+**Completed tasks**:
+- **B1**: Implemented — commit `e392956`. 12 domain patterns replace `<all_urls>` in content_scripts and web_accessible_resources. `close.alfredloh.com` added to host_permissions. Spec at `docs/specs/restrict_content_scripts_domains_spec.md`.
+- **B2**: Implemented — commit `d4f1fec`, 18 unit tests pass. Spec at `docs/specs/analysis_panel_redesign_spec.md` (6 review cycles: 2 SE, 2 UX, 1 architect, 1 UI/UX Pro Max).
+
+**Scope expansion (B2)**:
+- Original WBS file list: `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css` (2 files)
+- Actual files: `background/service-worker.js`, `sidepanel/helpers.js` (new), `sidepanel/sidepanel.html`, `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css`, `tests/unit/analysis-panel.test.js` (new) (6 files)
+- Service worker needed data layer restructure: raw float instead of pre-formatted string, warning/warningFix surfaced as separate fields
+- `helpers.js` extracted for testability (CJS export pattern matching `background/auth.js`)
+- Streaming DOM "Energy" label intentionally preserved for deeprip/quickrip — different metric, different backend
+- Despite scope expansion, effort matched 0.5 day estimate. Spec review identified the scope early, avoiding rework.
+
+**Files added**:
+- `sidepanel/helpers.js` — analysis rendering helpers (not in original WBS file list)
+- `docs/specs/analysis_panel_redesign_spec.md` — B2 spec (579 lines, approved)
+- `docs/specs/restrict_content_scripts_domains_spec.md` — B1 spec (222 lines, approved)
+
+**Schedule impact**:
+- 7 of 9 launch tasks complete (A1-A3, B1-B2 + dev env setup)
+- Remaining: B3 (0.25 day), B4 (0.5 day), C1 (0.5 day)
+- Day 3 has full capacity — comfortably on track
+
+---
 
 ### 2026-03-07 Update (PM)
 
@@ -465,6 +493,8 @@ Day 4 (March 9):
 ### Estimation Accuracy
 - A2 estimated 0.5 day, actual 0.5 day — accurate. Spec + 6 review cycles + implementation fit within estimate
 - A3 estimated 0.25 day, actual 0.5 day — underestimated 2x. Original WBS described a simple header swap; spec review revealed 403 auto-detection gap, module extraction need, and cross-context error propagation complexity. Lesson: tasks that touch error handling across multiple execution contexts are consistently more complex than "swap X for Y" descriptions suggest.
+- B1 estimated 15 min, actual 15 min — accurate. Declarative manifest change, spec was straightforward.
+- B2 estimated 0.5 day, actual 0.5 day — accurate despite 3x file count expansion (2 → 6). Spec review caught the scope expansion early (service worker data layer, helpers extraction) before implementation started. Lesson: thorough spec review absorbs scope expansion into the estimate rather than causing rework.
 - Dev environment setup was unplanned (~0.5 day) — should have been a WBS task
 
 ### Technical Decisions
@@ -472,3 +502,6 @@ Day 4 (March 9):
 - Gate uses `position: absolute; inset: 0; z-index: 100` to fully cover sidepanel — prevents interaction with underlying UI
 - Header key button uses neutral styling (muted → secondary on hover) to avoid competing with primary action buttons
 - `confirm()` dialog for reset — native browser dialog, not pretty but correct for a rare destructive action
+- B2: Analysis helpers extracted to `sidepanel/helpers.js` (same CJS export pattern as `background/auth.js`) — keeps rendering logic testable without DOM mocking
+- B2: Match colors use GitHub dark-mode palette (`#3fb950`/`#d29922`/`#f85149`) intentionally distinct from design system semantic colors (`--success`/`--warning`/`--error`) to avoid false "error" signal on low match scores
+- B2: Streaming DOM preserves "Energy" label for deeprip/quickrip — different backend field name, different metric. "Match" scoped to smartrip only via `buildAnalysisHtml()`
