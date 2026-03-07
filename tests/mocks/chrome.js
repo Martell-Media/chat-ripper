@@ -4,9 +4,9 @@ globalThis.chrome = {
   storage: {
     local: {
       get: vi.fn((keys, cb) => {
-        if (typeof keys === "string") keys = [keys];
+        const keyList = typeof keys === "string" ? [keys] : keys;
         const result = {};
-        for (const k of keys) {
+        for (const k of keyList) {
           if (k in storage) result[k] = storage[k];
         }
         if (cb) cb(result);
@@ -14,6 +14,12 @@ globalThis.chrome = {
       }),
       set: vi.fn((items, cb) => {
         Object.assign(storage, items);
+        if (cb) cb();
+        return Promise.resolve();
+      }),
+      remove: vi.fn((keys, cb) => {
+        const keyList = typeof keys === "string" ? [keys] : keys;
+        for (const k of keyList) delete storage[k];
         if (cb) cb();
         return Promise.resolve();
       }),

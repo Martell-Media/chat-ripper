@@ -263,6 +263,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "VALIDATE_API_KEY") {
+    const key = message.key || "";
+    fetch(CONFIG.SMARTRIP_API + "/suggest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + key,
+      },
+      body: JSON.stringify({ messages: [], contact_id: "validate" }),
+    })
+      .then((resp) => {
+        if (resp.status === 403 || resp.status === 401) {
+          sendResponse({ success: false, error: "invalid" });
+        } else if (resp.status === 503) {
+          sendResponse({ success: false, error: "network" });
+        } else {
+          sendResponse({ success: true });
+        }
+      })
+      .catch(() => {
+        sendResponse({ success: false, error: "network" });
+      });
+    return true;
+  }
+
   if (message.type === "PING") {
     console.log("[BG] PING received, sending PONG");
     sendResponse({ pong: true });

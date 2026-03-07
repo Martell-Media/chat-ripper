@@ -388,8 +388,107 @@ function showEmpty(msg) {
   </div>`;
 }
 
-// Trigger auto-analyze on load
-autoAnalyze();
+// Gate: check for stored API key before allowing normal operation
+const setupGate = document.getElementById("setupGate");
+const gateKeyInput = document.getElementById("gateKeyInput");
+const gateActivateBtn = document.getElementById("gateActivateBtn");
+const gateError = document.getElementById("gateError");
+const gateLoading = document.getElementById("gateLoading");
+const headerKeyBtn = document.getElementById("headerKeyBtn");
+
+function showGate() {
+  setupGate.style.display = "flex";
+  gateKeyInput.focus();
+}
+
+function hideGate() {
+  setupGate.style.display = "none";
+}
+
+function showGateError(msg) {
+  gateError.textContent = msg;
+  gateError.style.display = "block";
+  gateLoading.style.display = "none";
+  gateActivateBtn.disabled = false;
+  gateKeyInput.disabled = false;
+}
+
+function hideGateError() {
+  gateError.style.display = "none";
+}
+
+function setGateValidating(validating) {
+  gateActivateBtn.disabled = validating;
+  gateKeyInput.disabled = validating;
+  gateLoading.style.display = validating ? "flex" : "none";
+  if (validating) hideGateError();
+}
+
+function updateKeyBtnVisibility(hasKey) {
+  headerKeyBtn.style.display = hasKey ? "" : "none";
+}
+
+function submitGateKey() {
+  const key = gateKeyInput.value.trim();
+  if (!key) {
+    showGateError("Please enter your API key.");
+    return;
+  }
+
+  setGateValidating(true);
+
+  chrome.runtime.sendMessage({ type: "VALIDATE_API_KEY", key: key }, (resp) => {
+    if (chrome.runtime.lastError) {
+      showGateError("Connection error. Please try again.");
+      return;
+    }
+    if (resp && resp.success) {
+      chrome.storage.local.set({ smartrip_api_key: key }, () => {
+        hideGate();
+        updateKeyBtnVisibility(true);
+        autoAnalyze();
+      });
+    } else {
+      const errMsg = resp?.error === "network"
+        ? "Could not reach server. Check your connection and try again."
+        : "Invalid API key. Contact Alfred for a valid key.";
+      showGateError(errMsg);
+    }
+  });
+}
+
+function resetApiKey() {
+  chrome.storage.local.remove("smartrip_api_key", () => {
+    gateKeyInput.value = "";
+    hideGateError();
+    setGateValidating(false);
+    updateKeyBtnVisibility(false);
+    showGate();
+  });
+}
+
+gateActivateBtn.addEventListener("click", submitGateKey);
+gateKeyInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitGateKey();
+});
+
+headerKeyBtn.addEventListener("click", () => {
+  if (confirm("Reset your API key? You'll need to enter it again.")) {
+    resetApiKey();
+  }
+});
+
+// Initial check: show gate or proceed to normal UI
+chrome.storage.local.get("smartrip_api_key", (result) => {
+  if (result.smartrip_api_key) {
+    hideGate();
+    updateKeyBtnVisibility(true);
+    autoAnalyze();
+  } else {
+    showGate();
+    updateKeyBtnVisibility(false);
+  }
+});
 
 function doRequest(text, replyMode) {
   // Disconnect any existing port

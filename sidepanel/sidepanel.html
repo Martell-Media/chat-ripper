@@ -8,6 +8,23 @@
 </head>
 <body>
   <div class="sp">
+    <!-- Setup Gate (shown when no API key stored) -->
+    <div class="sp-gate" id="setupGate" style="display:none">
+      <div class="sp-gate-inner">
+        <img class="sp-gate-logo" src="../icons/logo.png" alt="ChatRipper AI">
+        <div class="sp-gate-title">Welcome to ChatRipper</div>
+        <div class="sp-gate-desc">Enter your API key to get started. Contact Alfred if you don't have one.</div>
+        <div class="sp-gate-form">
+          <input type="text" class="sp-gate-input" id="gateKeyInput" placeholder="cr_yourname_..." autocomplete="off" spellcheck="false" autofocus>
+          <button class="sp-gate-btn" id="gateActivateBtn">Activate</button>
+        </div>
+        <div class="sp-gate-error" id="gateError" style="display:none"></div>
+        <div class="sp-gate-loading" id="gateLoading" style="display:none">
+          <img src="../loading.gif" width="20" height="20" alt=""> Validating...
+        </div>
+      </div>
+    </div>
+
     <!-- Header -->
     <div class="sp-header">
       <div class="sp-brand">
@@ -23,6 +40,9 @@
       </div>
       <div class="sp-header-right">
         <div class="sp-status" id="statusDot"><span class="sp-dot"></span> Ready</div>
+        <button class="sp-header-btn sp-header-key" id="headerKeyBtn" title="Reset API Key" style="display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.778-7.778zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </button>
         <button class="sp-header-btn sp-header-analyze" id="headerAnalyzeBtn" title="Re-analyze page">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         </button>
