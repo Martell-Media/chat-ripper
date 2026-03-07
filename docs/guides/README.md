@@ -1,22 +1,8 @@
 # Guides
 
-Comprehensive guides for AI-assisted development with this template.
+Comprehensive guides for AI-assisted development.
 
 ## Available Guides
-
-### [SECURITY_GUIDE.md](SECURITY_GUIDE.md)
-**Security considerations for AI-generated code**
-
-Critical security patterns and vulnerabilities:
-- Common vulnerabilities in AI-generated code (SQL injection, XSS, IDOR, etc.)
-- Security checklist for code review
-- Security testing patterns
-- When AI struggles with security
-- Tools and dependencies for security
-
-**Use when:** Reviewing AI-generated code, implementing security features
-
----
 
 ### [COMMON_PITFALLS.md](COMMON_PITFALLS.md)
 **Anti-patterns and mistakes to avoid**
@@ -29,23 +15,6 @@ Critical security patterns and vulnerabilities:
 - Detection checklist and recovery strategies
 
 **Use when:** Preventing mistakes, debugging issues, improving process
-
----
-
-### [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-**Solutions for common problems**
-
-Diagnostic steps and fixes for:
-- AI-generated code issues
-- Environment & setup problems
-- Testing failures
-- Type hint errors
-- Pydantic validation errors
-- Git issues
-- Performance problems
-- Common error messages
-
-**Use when:** Something breaks, debugging, investigating issues
 
 ---
 
@@ -73,7 +42,7 @@ Deep dive into spec-driven development:
 - Working with existing projects (brownfield)
 - Documentation strategy
 
-**Use when:** Understanding the methodology behind this template
+**Use when:** Understanding the methodology behind spec-driven development
 
 ---
 
@@ -102,25 +71,9 @@ Architecture guide for building AI-powered processing pipelines:
 - Agent, Concurrent, and Router node patterns
 - Workflow validation and execution patterns
 
-**Note:** This is a reference architecture example for systems you might build on this template.
+**Note:** This is a reference architecture example for systems you might build on this project.
 
 **Use when:** Building AI pipelines, workflow systems, or DAG-based architectures
-
----
-
-### [multi_project_management.md](multi_project_management.md)
-**Managing multiple AI projects with shared or isolated infrastructure**
-
-Comprehensive guide for teams managing multiple projects:
-- Docker volume sharing and isolation strategies
-- Database persistence and schema isolation
-- Project-specific configuration management
-- Complete isolation vs shared infrastructure approaches
-- Alembic migration configuration for multiple projects
-- Troubleshooting multi-project setups
-- Risk assessment and best practices
-
-**Use when:** Managing multiple customer projects, multi-tenant systems, or parallel feature development
 
 ---
 
@@ -140,7 +93,7 @@ Comprehensive guide for teams managing multiple projects:
 
 ## Guide Selection
 
-**New to this template?**
+**Getting started?**
 1. Start with QUICK_START.md for immediate action
 2. Read AI_ASSISTED_DEVELOPMENT_GUIDE.md to understand why
 3. Reference CLAUDE_MD_USAGE.md when working with context files
@@ -161,6 +114,5 @@ Comprehensive guide for teams managing multiple projects:
 
 ## See Also
 
-- [Getting Started](../GETTING_STARTED.md) - Complete workflow guide
 - [Commands Reference](../../.claude/COMMANDS.md) - All available commands
 - [Templates](../templates/README.md) - Document templates

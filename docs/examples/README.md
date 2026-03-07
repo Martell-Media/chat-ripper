@@ -1,8 +1,8 @@
 # Example Architectures
 
-This directory contains reference architecture examples that demonstrate patterns you might implement using this template.
+This directory contains reference architecture examples that demonstrate patterns for reference.
 
-**Important:** These are conceptual examples and reference architectures, not documentation of code that exists in this template.
+**Important:** These are conceptual examples and reference architectures, not documentation of code that exists in this project.
 
 ## Available Examples
 
@@ -16,4 +16,4 @@ This is a reference architecture showing how to build AI-powered processing pipe
 - Agent, concurrent, and router node patterns
 - State management through TaskContext
 
-Use this as inspiration when building workflow systems, AI pipelines, or complex orchestration patterns on top of this template.
+Use this as inspiration when building workflow systems, AI pipelines, or complex orchestration patterns.
