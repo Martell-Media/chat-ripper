@@ -67,7 +67,7 @@ The extension runs in three isolated execution contexts with distinct capabiliti
 │  │  - DOM access    │                  │               │ │
 │  │  - API scraping  │                  │ - API gateway │ │
 │  │  - Floating UI   │                  │ - Msg broker  │ │
-│  │  - Text insert   │                  │ - Auth header │ │
+│  │  - Text insert   │                  │ - Key validate│ │
 │  └─────────────────┘                   └───────┬──────┘ │
 │                                                │        │
 │                                      chrome.runtime     │
@@ -78,19 +78,19 @@ The extension runs in three isolated execution contexts with distinct capabiliti
 │                                        │ sidepanel.js  │ │
 │                                        │ ~1500 LOC     │ │
 │                                        │               │ │
+│                                        │ - API key gate│ │
 │                                        │ - Reply UI    │ │
 │                                        │ - Chat/Score  │ │
 │                                        │ - Agent bar   │ │
-│                                        │ - State mgmt  │ │
 │                                        └──────────────┘ │
 └──────────────────────────────────────────────────────────┘
 ```
 
 | Context | File | LOC | Responsibilities |
 |---------|------|-----|------------------|
-| Content Script | `content/content.js` | ~1500 | DOM access, Revio API scraping, platform detection, text selection, reply insertion |
-| Service Worker | `background/service-worker.js` | ~1100 | Message broker, API gateway to all backends, auth header injection, auto-fallback |
-| Side Panel | `sidepanel/sidepanel.js` | ~1500 | Reply display, chat/score UI, agent bar, streaming display, state management |
+| Content Script | `content/content.js` | ~1460 | DOM access, Revio API scraping, platform detection, text selection, reply insertion |
+| Service Worker | `background/service-worker.js` + `background/auth.js` | ~1700 + 16 | Message broker, API gateway to all backends, auth header injection, key validation, key revocation, auto-fallback |
+| Side Panel | `sidepanel/sidepanel.js` | ~1900 | Reply display, chat/score UI, agent bar, streaming display, API key gate, storage change listener, state management |
 
 ### 2.2 Message Passing
 
@@ -105,7 +105,8 @@ Two communication patterns:
 | `SCRAPE_PAGE` | service worker -> content script | Request page scrape |
 | `INSERT_TEXT` | service worker -> content script | Insert reply into chat input |
 | `OPEN_SIDE_PANEL` | content script -> service worker | Open side panel |
-| `SIDE_PANEL_READY` | sidepanel -> service worker | Panel loaded, ready for data |
+| `SIDE_PANEL_READY` | sidepanel -> service worker | Panel loaded (informational only, does not trigger scraping) |
+| `VALIDATE_API_KEY` | sidepanel -> service worker | Validate key via POST /suggest with Bearer header. Returns `{success, error?}` |
 | `REVIO_CONTACT_CHANGED` | service worker -> sidepanel | Contact switch detected (via `webNavigation.onHistoryStateUpdated`) |
 | `CLOSER_CHECK` | sidepanel -> service worker | Check whitelist status |
 | `CLOSER_ADD` | sidepanel -> service worker | Add contact to whitelist |
@@ -315,7 +316,7 @@ Worker queue
         │
         ▼
 CopilotClient → POST /suggest (smartrip)
-  - X-Copilot-Key header (shared key, legacy)
+  - X-Copilot-Key header (shared key, legacy — closer-bot hasn't migrated to Bearer yet)
   - 30s timeout
         │
         ▼
@@ -405,30 +406,55 @@ KB matches injected into LLM prompt
 ### 6.1 Authentication Model
 
 ```
-┌──────────────┐    ┌──────────────┐
-│   Extension   │    │   Smartrip    │
-│               │    │              │
-│ Bearer {key} ─┼───►│ Middleware   │
-│               │    │ validates    │
-│               │    └──────────────┘
-│               │
-│               │    ┌──────────────┐
-│  Direct URLs ─┼───►│ Chris's      │
-│  (no auth)    │    │ Backends     │
-│               │    │ (known risk) │
-└──────────────┘    └──────────────┘
+┌──────────────────────────────────────────────────────┐
+│                     Extension                          │
+│                                                        │
+│  Side Panel                    Service Worker          │
+│  ┌─────────────┐              ┌─────────────────┐     │
+│  │ API Key Gate │─VALIDATE──► │ POST /suggest    │     │
+│  │ (first-run)  │ _API_KEY    │ Bearer {key}     │     │
+│  │              │◄────────────│ 401/403=invalid  │     │
+│  │ stores key   │             │ other=valid      │     │
+│  │ in storage   │             └────────┬────────┘     │
+│  └─────────────┘                       │              │
+│                                        │              │
+│                              ┌─────────▼────────┐     │
+│                              │ Bearer {key} ────┼──► Smartrip
+│                              │ (from storage)    │     │
+│                              │                   │     │
+│                              │ Direct URLs ─────┼──► Chris's Backends
+│                              │ (no auth)         │     (known risk)
+│                              └───────────────────┘     │
+└──────────────────────────────────────────────────────┘
 ```
+
+**First-run gate flow** (implemented in A2):
+1. Side panel loads → checks `chrome.storage.local` for `smartrip_api_key`
+2. No key → gate overlay blocks all features (autoAnalyze, Score, Coach, agent toggle)
+3. Rep enters key → `VALIDATE_API_KEY` message to service worker
+4. Service worker POSTs `/suggest` with `Authorization: Bearer {key}` and minimal body
+5. 401/403 = invalid key → error shown. Any other status = key passed auth middleware → valid
+6. Valid → stored in `chrome.storage.local`, gate dismissed, `autoAnalyze()` called
+7. Header key button allows manual reset (with confirm dialog)
+
+<!-- Updated 2026-03-07: A3 closed the revocation gap with two mechanisms -->
+**Key revocation flow** (implemented in A3):
+1. Smartrip returns 401/403 → `clearRevokedKey()` removes key from storage, throws with `keyRevoked: true`
+2. Error propagates through message passing with `key_revoked` flag → sidepanel calls `resetApiKey()` → gate shown
+3. `chrome.storage.onChanged` listener in sidepanel detects key removal from any context (service worker, external clear) → shows gate immediately without waiting for an error response
+4. Both mechanisms are defense-in-depth — the `onChanged` listener mitigates the content script limitation where `new Error(response.error)` drops the `key_revoked` flag
 
 | Backend | Auth Mechanism | Key Format |
 |---------|---------------|------------|
-| Smartrip | `Authorization: Bearer {key}` | `cr_{rep_id}_{24_hex_chars}` |
-| Smartrip (legacy) | `X-Copilot-Key` header | Shared HMAC key |
+| Smartrip | `Authorization: Bearer {key}` | `cr_{rep_id}_{24_hex_chars}` (per-rep, from `chrome.storage.local`) |
+<!-- Updated 2026-03-07: Extension no longer sends X-Copilot-Key (A3). Backend still accepts it for legacy support. -->
+| Smartrip (backend legacy) | `X-Copilot-Key` header | Shared HMAC key — accepted by backend, no longer sent by extension |
 | Deeprip/Quickrip | None | N/A |
 | Coach/Score | None | N/A |
-| Closer-bot API | None | N/A |
+| Closer-bot API | `X-API-Key` header | Static key in `config.js` (`CONFIG.CLOSER_API_KEY`) |
 | Revio API | Cookie extraction (`token`, `XSRF-TOKEN`) | Browser session cookies |
 
-**Launch state:** Per-rep keys on smartrip only. Chris's backends have no auth (security through obscurity -- URLs are not public but are embedded in extension source).
+**Launch state:** Per-rep keys on smartrip only. Closer-bot API uses a static shared key (`CONFIG.CLOSER_API_KEY` in `config.js`, sent as `X-API-Key` header). Chris's backends have no auth (security through obscurity -- URLs are not public but are embedded in extension source). Auth helpers (`getStoredApiKey`, `clearRevokedKey`) are extracted to `background/auth.js` for testability, loaded via `importScripts` in service worker.
 
 **Post-launch:** Proxy all engines through smartrip (PRD Section 8.3). Extension only talks to GCR, which forwards authenticated requests to Railway/n8n. Single point of auth enforcement.
 
@@ -509,7 +535,7 @@ KB matches injected into LLM prompt
 
 | Component | Deployment | CI/CD |
 |-----------|-----------|-------|
-| Extension | CWS upload (.zip) | None -- manual upload |
+| Extension | CWS upload (.zip via `scripts/package.sh`) | GitHub Actions: lint (Biome) + test (Vitest) on push |
 | Smartrip | `make deploy` → `gcloud run deploy` | None |
 | Closer-bot | `docker-compose up` on VM | None |
 | Deeprip/Quickrip | Railway auto-deploy (Chris) | Unknown |
@@ -519,7 +545,7 @@ KB matches injected into LLM prompt
 
 - **Cloud Run max-instances=1**: Required by Litestream single-writer pattern. SQLite WAL → GCS replication (1-min sync interval). On redeploy: Litestream restores DB from GCS before app starts.
 - **No staging environment**: All testing against production.
-- **No CI/CD**: Manual deployment everywhere.
+- **Extension CI**: GitHub Actions runs Biome lint + Vitest on push. Deployment still manual (CWS upload).
 - **CWS update latency**: Review takes 1-3 days. No one-click rollback -- fix forward or unpublish.
 
 ---
@@ -533,7 +559,10 @@ KB matches injected into LLM prompt
 | Deeprip/quickrip error (any type) | Auto-fallback to smartrip |
 | Auto-fallback succeeds | Response tagged with `fallback: true` badge |
 | Smartrip error (as primary or fallback) | Error message + retry button |
-| Invalid/revoked API key (403) | "Invalid key -- contact Alfie" with reset option |
+| Invalid API key (gate validation) | "Invalid API key. Contact Alfred for a valid key." with retry |
+| Network error (gate validation) | "Could not reach server. Check your connection and try again." |
+<!-- Updated 2026-03-07: A3 auto-detects 401/403 and re-shows gate -->
+| Invalid/revoked API key (401/403 during use) | Key auto-cleared from storage, gate re-shown immediately. `onChanged` listener provides belt-and-suspenders coverage. |
 | Extension context invalidated | Error message asks to reload |
 | Port disconnect (streaming) | Fallback handling, reconnect on next request |
 | No conversation detected | "No conversation detected" empty state |
@@ -643,7 +672,9 @@ Benefits:
 
 | Spec | Repo | Status | Impact |
 |------|------|--------|--------|
-| Per-rep API keys | hackathon | Launch (A1) | Auth middleware, key management, dashboard per-rep filtering |
+| Per-rep API keys | hackathon | ✅ Deployed (A1) | Auth middleware, key management, dashboard per-rep filtering. 178 tests. |
+| First-run API key gate | chat-ripper | ✅ Implemented (A2) | Side panel gate, service worker validation handler, key storage. 5 tests. |
+| Remove ALFRED_KEY + Bearer | chat-ripper | ✅ Implemented (A3) | Per-rep Bearer auth on smartrip, closer-bot key to config, 403 auto-detection, onChanged listener. 5 tests. |
 | Pinecone v2→v3 fix | hackathon | Active | Fix stale index name in discovery pipeline |
 | Per-rep bot attribution | closer-bot | Post-launch | Bot calls attributed to activating rep |
 
@@ -662,3 +693,8 @@ Benefits:
 | Self-hosted VM for closer-bot | Needs persistent WebSocket (Ably). Cloud Run cold starts would drop connections. | Hackathon |
 | No monitoring/alerting | Solo dev, 5.5 users. Console logs + dashboard sufficient for launch. | March 2026 |
 | Email channel blocking | Zero email training data, different API structure, different voice. Not worth the quality risk. | March 2026 |
+| Validation via POST /suggest | Reuses existing endpoint instead of dedicated /validate-key. 401/403 = bad key, any other status = key passed auth middleware. No backend changes needed. | March 2026 |
+| Gate routes through service worker | Side panel can't access CONFIG.SMARTRIP_API (loaded via importScripts in service worker only). Validation must route through message passing. | March 2026 |
+| Two-key split (smartrip vs closer-bot) | Smartrip uses per-rep dynamic keys from storage. Closer-bot uses a static shared key in config.js. Different backends, different auth models — collapsing them would be wrong. | March 2026 |
+| Auth module extraction (auth.js) | `getStoredApiKey()` and `clearRevokedKey()` extracted for Vitest testability. CJS export via `typeof module` guard — `importScripts` ignores it, Vite recognizes it. | March 2026 |
+| `onChanged` listener for key revocation | Decouples gate display from error propagation. Content script drops `key_revoked` flag (limitation of `new Error(msg)` — only captures message string). Listener shows gate immediately regardless of which context cleared the key. | March 2026 |

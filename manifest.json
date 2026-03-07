@@ -8,14 +8,28 @@
     "https://rigchris.app.n8n.cloud/*",
     "https://ai-sales-copilot-458007064300.us-east1.run.app/*",
     "https://backend-production-06c5.up.railway.app/*",
-    "https://app.sbccrm.com/*"
+    "https://*.sbccrm.com/*",
+    "https://close.alfredloh.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://*.sbccrm.com/*",
+        "https://*.linkedin.com/*",
+        "https://mail.google.com/*",
+        "https://*.gmail.com/*",
+        "https://*.instagram.com/*",
+        "https://*.facebook.com/*",
+        "https://*.messenger.com/*",
+        "https://x.com/*",
+        "https://*.twitter.com/*",
+        "https://*.salesforce.com/*",
+        "https://*.force.com/*",
+        "https://*.hubspot.com/*"
+      ],
       "js": ["content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle"
@@ -24,7 +38,20 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*", "loading.gif"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "https://*.sbccrm.com/*",
+        "https://*.linkedin.com/*",
+        "https://mail.google.com/*",
+        "https://*.gmail.com/*",
+        "https://*.instagram.com/*",
+        "https://*.facebook.com/*",
+        "https://*.messenger.com/*",
+        "https://x.com/*",
+        "https://*.twitter.com/*",
+        "https://*.salesforce.com/*",
+        "https://*.force.com/*",
+        "https://*.hubspot.com/*"
+      ]
     }
   ],
   "side_panel": {

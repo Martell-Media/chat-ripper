@@ -181,11 +181,12 @@ ChatRipper and closer-bot are independent systems. ChatRipper manages the closer
 
 | ID | Requirement | Priority | Acceptance Criteria |
 |----|-------------|----------|-------------------|
-| FR-8.1 | First-run gate | Launch | If no API key in chrome.storage.local, side panel shows setup screen before any feature works |
-| FR-8.2 | Key validation | Launch | Smartrip validates Bearer header. Invalid/revoked key shows "Invalid key -- contact Alfie" with reset option. |
+| FR-8.1 | First-run gate | Launch | If no API key in chrome.storage.local, side panel shows setup screen before any feature works. Gate blocks all features (autoAnalyze, Score, Coach, agent toggle). |
+| FR-8.2 | Key validation | Launch | Validation routes through service worker (only context with CONFIG.SMARTRIP_API access). Sends POST /suggest with Bearer header — 401/403 = invalid key, any other status = key passed auth middleware (valid). Invalid key shows "Invalid key -- contact Alfred" with reset option. |
 | FR-8.3 | Per-rep keys | Launch | Unique key per rep (e.g., cr_adam_xxxx). Dashboard shows per-rep usage. |
-| FR-8.4 | Remove hardcoded key | Launch | Remove ALFRED_KEY from service-worker.js |
-| FR-8.5 | Key revocation | Launch | Revoking a key on the backend causes the rep's extension to stop working with a clear error |
+| FR-8.4 | Remove hardcoded key | Launch | Remove ALFRED_KEY from service-worker.js. Closer-bot key relocated to `config.js` as `CONFIG.CLOSER_API_KEY`. |
+<!-- Updated 2026-03-07: A3 implemented (commit b76779c). Gap closed — 403 auto-detection + onChanged listener now re-show gate immediately. -->
+| FR-8.5 | Key revocation | Launch | Revoking a key on the backend causes 401/403 on next API call → extension clears stored key and re-shows setup gate automatically. Two mechanisms: (1) `handleAlfredResponse` / streaming status check detect 401/403, clear key via `clearRevokedKey()`, propagate `key_revoked` flag through error responses to sidepanel. (2) `chrome.storage.onChanged` listener in sidepanel detects key removal from any context and shows gate immediately — no API call needed. |
 
 ---
 
@@ -295,12 +296,13 @@ The smartrip analysis panel has terminology and layout issues.
 
 - **Per-rep API keys on smartrip:**
   - Generate unique key per rep (e.g., `cr_adam_xxxx`)
-  - Side panel first-run gate: if no key in chrome.storage.local, show setup screen
-  - Smartrip validates key via Bearer header middleware, logs which rep made the call
-  - 403 handling: invalid/revoked key -> "Invalid key -- contact Alfie" with reset option
-  - Revoke individual key on departure -- extension stops working
+  - Side panel first-run gate: if no key in chrome.storage.local, show setup screen blocking all features
+  - Validation routes through service worker → POST /suggest with Bearer header. 401/403 = invalid, other = valid (key passed auth middleware)
+  - 403 handling: invalid/revoked key → extension auto-clears stored key and re-shows setup gate
+  <!-- Updated 2026-03-07: A3 closed the revocation gap. Two mechanisms provide immediate gate display. -->
+  - Revoke individual key on departure → next API call returns 401/403 → key cleared, gate shown automatically. `chrome.storage.onChanged` listener also detects external key removal (e.g., Chrome clear data) and shows gate immediately without waiting for an API call.
   - Dashboard shows per-rep usage breakdowns
-  - Remove hardcoded ALFRED_KEY from service-worker.js
+  - Hardcoded `ALFRED_KEY` removed from service-worker.js. Closer-bot key relocated to `config.js`.
 
 - **Chris's backends:** NO authentication. Railway URLs and n8n webhook URLs are effectively public (security through obscurity). Known and accepted risk for launch.
 
@@ -335,14 +337,21 @@ The smartrip analysis panel has terminology and layout issues.
 
 ### 10.1 Content Script Scope (Launch)
 
+<!-- Updated 2026-03-07: Expanded to all platforms detected by content script, HTTPS only, wildcard subdomains -->
 Restrict `content_scripts.matches` from `<all_urls>` to known domains:
 
-- `*://app.sbccrm.com/*`
-- `*://*.linkedin.com/*`
-- `*://mail.google.com/*`
-- `*://*.instagram.com/*`
-- `*://*.facebook.com/*`
-- `*://*.x.com/*`
+- `https://*.sbccrm.com/*` (Revio — app, www, dev)
+- `https://*.linkedin.com/*`
+- `https://mail.google.com/*`
+- `https://*.gmail.com/*`
+- `https://*.instagram.com/*`
+- `https://*.facebook.com/*`
+- `https://*.messenger.com/*`
+- `https://x.com/*`
+- `https://*.twitter.com/*`
+- `https://*.salesforce.com/*`
+- `https://*.force.com/*`
+- `https://*.hubspot.com/*`
 
 ### 10.2 Permissions
 
@@ -358,7 +367,8 @@ All current permissions are justifiable:
 
 ### 10.3 Host Permissions
 
-Backend API URLs already scoped in host_permissions. No changes needed.
+<!-- Updated 2026-03-07: Added close.alfredloh.com, broadened sbccrm.com to wildcard -->
+Backend API URLs scoped in host_permissions. `close.alfredloh.com` added for closer-bot API calls (previously relied on CORS headers). `sbccrm.com` broadened to wildcard for dev/www subdomain support.
 
 ---
 
@@ -397,6 +407,8 @@ Backend API URLs already scoped in host_permissions. No changes needed.
 | Extension context invalidated | Error message asks to reload | Existing |
 | Contact switch during generation | Stale switch guard exists | Existing |
 | Non-Revio platforms | DOM scraping fallback, no Rocket Selling enrichment | By design |
+<!-- Updated 2026-03-07: A3 closed this gap -->
+| Revoked key after setup | 401/403 from smartrip → key auto-cleared, gate re-appears. `onChanged` listener provides immediate gate display even for external key removal. | Fixed (A3) |
 | Controls bar overflow | Coach button hidden on narrow side panels | UX bug (see 7.3) |
 | Floating button | Dead code, never shown | Dormant (see 7.4) |
 
@@ -406,10 +418,24 @@ Backend API URLs already scoped in host_permissions. No changes needed.
 
 ### 13.1 Unit Tests
 
-Pure logic functions suitable for unit testing:
-- Message filtering (e.g., email channel detection)
-- Phase detection logic
-- JSON extraction helpers
+<!-- Updated 2026-03-07: Reflects actual test infrastructure established during A2 -->
+
+**Framework:** Vitest + jsdom (configured in `vitest.config.js`)
+
+**Test structure:**
+<!-- Updated 2026-03-07: Added A3 bearer-header tests -->
+```
+tests/
+├── mocks/
+│   └── chrome.js           # Chrome API stubs (storage.local, runtime, session)
+└── unit/
+    ├── first-run-gate.test.js   # A2 — gate display, key storage, reset
+    └── bearer-header.test.js    # A3 — auth helpers, key revocation, error shape
+```
+
+**Chrome mock** (`tests/mocks/chrome.js`): Stubs `chrome.storage.local` (get/set/remove), `chrome.storage.session`, and `chrome.runtime` (sendMessage, connect). Storage is reset between tests via `beforeEach`.
+
+**Commands:** `npm test` (run once), `npm run test:watch` (watch mode)
 
 ### 13.2 Manual Test Checklist
 
@@ -468,9 +494,9 @@ Not realistic for a solo developer with a Chrome extension. Manual testing is th
 | Closer-bot toggle (Revio DM only) | Existing |
 | Email channel blocking | Implemented |
 | Closer-bot stale state fix | Implemented |
-| Per-rep API keys on smartrip | **TODO** |
-| First-run API key setup gate | **TODO** |
-| Remove hardcoded ALFRED_KEY | **TODO** |
+| Per-rep API keys on smartrip | Deployed |
+| First-run API key setup gate | Implemented |
+| Remove hardcoded ALFRED_KEY + wire Bearer auth | Implemented |
 | Privacy policy (CWS requirement) | **TODO** |
 | Restrict content_scripts to known domains | **TODO** |
 | Smartrip analysis panel redesign (MATCH rename, color coding, warning row, remove duplication) | **TODO** |
@@ -521,6 +547,8 @@ ChatRipper shows the agent bar as informational. It does NOT block reply generat
 | Instagram | DOM | contenteditable | No | Local only |
 | Facebook | DOM | contenteditable | No | Local only |
 | X (Twitter) | DOM | contenteditable | No | Local only |
+| Salesforce | DOM | contenteditable | No | Local only |
+| HubSpot | DOM | contenteditable | No | Local only |
 
 ## Appendix C: Backend Engine Comparison
 
