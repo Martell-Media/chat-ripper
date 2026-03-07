@@ -42,6 +42,20 @@ function buildAnalysisHtml(analysis) {
   return html;
 }
 
+const INSERT_WARNING_MSG =
+  "Bot is managing this contact \u2014 sending will pause its next auto-reply";
+
+function shouldShowInsertWarning(platform, contactId, agentActive) {
+  return platform === "revio" && !!contactId && agentActive;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { escHtml, formatMatchValue, buildAnalysisHtml, MATCH_TOOLTIP };
+  module.exports = {
+    escHtml,
+    formatMatchValue,
+    buildAnalysisHtml,
+    MATCH_TOOLTIP,
+    shouldShowInsertWarning,
+    INSERT_WARNING_MSG,
+  };
 }

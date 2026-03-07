@@ -63,6 +63,43 @@ btnMetrics.addEventListener("click", () => {
 // Alt+I hotkey — cycles through messages: 1st press = Message 1, 2nd = Message 2, etc.
 let insertCycleIdx = 0;
 
+// Toast state for closer-bot insert warning
+let toastEl = null;
+let toastTimer = null;
+let toastFadeTimer = null;
+
+function showInsertWarningToast() {
+  const active = agentLogoBtn.classList.contains("agent-active");
+  if (!shouldShowInsertWarning(currentPlatform, closerContactId, active)) return;
+
+  // Reset timers if toast already visible (including fade-out phase)
+  if (toastTimer) clearTimeout(toastTimer);
+  if (toastFadeTimer) clearTimeout(toastFadeTimer);
+
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.className = "sp-toast";
+    toastEl.textContent = INSERT_WARNING_MSG;
+    document.body.appendChild(toastEl);
+  } else {
+    toastEl.classList.remove("sp-toast-out");
+  }
+
+  toastTimer = setTimeout(() => {
+    if (toastEl) {
+      toastEl.classList.add("sp-toast-out");
+      toastFadeTimer = setTimeout(() => {
+        if (toastEl) {
+          toastEl.remove();
+          toastEl = null;
+        }
+        toastTimer = null;
+        toastFadeTimer = null;
+      }, 200);
+    }
+  }, 4000);
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_INSERT_TEXT") {
     const allMsgs = content.querySelectorAll(".sp-message-text[data-idx]");
@@ -73,6 +110,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Wrap around if we've gone past the last message
     if (insertCycleIdx >= allMsgs.length) insertCycleIdx = 0;
+
+    showInsertWarningToast();
 
     const targetMsg = allMsgs[insertCycleIdx];
     const text = targetMsg ? targetMsg.innerText.trim() : "";
@@ -1071,6 +1110,7 @@ function showReply(response) {
   const kbdHtml = " <kbd>Alt+I</kbd>";
   content.querySelectorAll(".sp-insert-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      showInsertWarningToast();
       const text = getMessageText(Number.parseInt(btn.dataset.idx));
       chrome.runtime.sendMessage({ type: "INSERT_TEXT", text: text }, (resp) => {
         if (resp && resp.success) {
