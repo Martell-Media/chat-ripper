@@ -635,7 +635,7 @@ body {
   left: 8px;
   right: 8px;
   z-index: 50;
-  background: var(--warning-bg);
+  background: rgba(40, 30, 10, 0.95);
   border: 1px solid var(--warning-border);
   color: var(--warning);
   padding: 8px 12px;
