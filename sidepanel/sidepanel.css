@@ -2294,7 +2294,7 @@ body {
 /* ── Setup Gate ── */
 
 .sp-gate {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 100;
   background: var(--bg);
