@@ -917,7 +917,6 @@ function updateStreamDom(json) {
 }
 
 let lastStreamText = "";
-const lastStreamRafId = null;
 
 function updateStreamingText(text) {
   // Alfred card-based streaming
