@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — ChatRipper AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+    p, li { margin-bottom: 0.5rem; }
+    ul { padding-left: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.95rem; }
+    th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: #f3f4f6; font-weight: 600; }
+    .subtitle { color: #6b7280; margin-bottom: 2rem; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="subtitle">ChatRipper AI Chrome Extension — Effective March 9, 2026</p>
+
+<h2>1. Introduction</h2>
+<p>ChatRipper AI is a Chrome extension developed by Martell Media for internal use by its revenue team. It provides AI-powered reply suggestions across supported messaging platforms.</p>
+
+<h2>2. Data Collection</h2>
+<p>The extension accesses the following data when you use it:</p>
+<ul>
+  <li>Conversation text from supported messaging platforms</li>
+  <li>Contact details (name, ID, channel type)</li>
+  <li>CRM metadata (sales pipeline data, notes, tags)</li>
+  <li>User settings (engine preference, API key — stored locally in your browser)</li>
+</ul>
+<p>The extension does <strong>not</strong> collect:</p>
+<ul>
+  <li>Passwords or login credentials</li>
+  <li>Financial information</li>
+  <li>Data from websites outside the supported platform list</li>
+</ul>
+
+<h2>3. How Data Is Used</h2>
+<ul>
+  <li>Conversation text is sent to backend AI services to generate reply suggestions.</li>
+  <li>Contact metadata is used to personalize suggestions.</li>
+  <li>Your API key authenticates requests and is never sent to third parties.</li>
+</ul>
+
+<h2>4. Data Storage</h2>
+<table>
+  <thead>
+    <tr><th>Location</th><th>What</th><th>Retention</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Extension (chrome.storage.local)</td>
+      <td>Settings only: engine preference, API key</td>
+      <td>Until you clear settings or remove the extension</td>
+    </tr>
+    <tr>
+      <td>Extension (memory)</td>
+      <td>Conversation data</td>
+      <td>Until the side panel reloads — not persisted</td>
+    </tr>
+    <tr>
+      <td>Backend servers (Google Cloud)</td>
+      <td>Contact ID, name, recent messages, generated suggestions</td>
+      <td>Retained for service improvement. No formal retention period currently defined.</td>
+    </tr>
+    <tr>
+      <td>Backend server logs</td>
+      <td>Metadata only (contact ID, response latency)</td>
+      <td>Default cloud provider retention</td>
+    </tr>
+    <tr>
+      <td>Automation backend (self-hosted)</td>
+      <td>Contact ID, automation status</td>
+      <td>Until manually removed</td>
+    </tr>
+    <tr>
+      <td>Third-party AI services</td>
+      <td>Conversation data sent for reply generation</td>
+      <td>Retention practices not independently verified</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. Third-Party Services</h2>
+<ul>
+  <li>Some reply suggestions are processed by third-party AI services operated independently from Martell Media.</li>
+  <li>These services receive conversation data for processing.</li>
+  <li>Data retention practices for these services have not been independently verified.</li>
+  <li>No data is sold or shared with advertisers.</li>
+</ul>
+
+<h2>6. Data Security</h2>
+<ul>
+  <li>All data is transmitted over HTTPS.</li>
+  <li>API keys are stored in Chrome's browser-managed local storage, protected by your OS login and browser profile.</li>
+  <li>Per-user authentication — each user has a unique key.</li>
+  <li>The extension is restricted to specific website domains.</li>
+</ul>
+
+<h2>7. User Rights</h2>
+<p>This is an internal tool. For data requests, contact Alfred Loh at <a href="mailto:alfred@danmartell.com">alfred@danmartell.com</a>.</p>
+<ul>
+  <li>You can clear your API key and settings via the extension.</li>
+  <li>Uninstalling the extension removes all locally stored data.</li>
+</ul>
+
+<h2>8. Changes to This Policy</h2>
+<p>This policy may be updated. Changes take effect when published to this URL.</p>
+
+<h2>9. Contact</h2>
+<p>Alfred Loh — <a href="mailto:alfred@danmartell.com">alfred@danmartell.com</a><br>Martell Media, Kelowna, BC, Canada</p>
+
+</body>
+</html>
