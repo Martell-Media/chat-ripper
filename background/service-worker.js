@@ -4,6 +4,16 @@ importScripts("auth.js");
 console.log("[BG] Service worker starting...");
 const sessionId = "ext-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
 
+// Helper: differentiate revoked key from no-scope 403
+// clearRevokedKey() is intentionally fire-and-forget (no await) —
+// we only need the side effect (storage removal), not the return value
+async function handle403(r) {
+  const body = await r.json().catch(() => ({}));
+  const revoked = (body.detail || "").includes("Invalid or revoked");
+  if (revoked) clearRevokedKey();
+  return { forbidden: true, revoked };
+}
+
 // --- Listener MUST be at top level, registered synchronously ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("[BG] Got message:", message.type, "from tab:", sender.tab?.id);
@@ -296,16 +306,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // --- Closer Bot Config API handlers (Bearer auth) ---
 
-  // Helper: differentiate revoked key from no-scope 403
-  // clearRevokedKey() is intentionally fire-and-forget (no await) —
-  // we only need the side effect (storage removal), not the return value
-  async function handle403(r) {
-    const body = await r.json().catch(() => ({}));
-    const revoked = (body.detail || "").includes("Invalid or revoked");
-    if (revoked) clearRevokedKey();
-    return { forbidden: true, revoked };
-  }
-
   if (message.type === "CLOSER_CHECK") {
     const cid = message.contactId;
     getStoredApiKey().then((key) => {
@@ -327,6 +327,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           revoked: !!data.revoked,
         }))
         .catch(() => sendResponse({ success: false, whitelisted: false }));
+    }).catch((err) => {
+      console.error("[BG] getStoredApiKey() failed:", err);
+      sendResponse({ success: false, whitelisted: false });
     });
     return true;
   }
@@ -354,6 +357,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           revoked: !!data.revoked,
         }))
         .catch(() => sendResponse({ success: false }));
+    }).catch((err) => {
+      console.error("[BG] getStoredApiKey() failed:", err);
+      sendResponse({ success: false });
     });
     return true;
   }
@@ -381,16 +387,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           revoked: !!data.revoked,
         }))
         .catch(() => sendResponse({ success: false }));
+    }).catch((err) => {
+      console.error("[BG] getStoredApiKey() failed:", err);
+      sendResponse({ success: false });
     });
     return true;
   }
 
   // CLOSER_ELIGIBLE — check if contact's closer is in allowed_closer_ids
-  // Simplified 403 handling: no handle403() call here. This handler only runs
-  // after CLOSER_CHECK succeeds (scope already validated). A 403 here means
-  // the key was revoked in the narrow window between the two calls — treating
-  // it as "not eligible" is safe; the next contact change triggers a fresh
-  // CLOSER_CHECK which will detect the revocation and clear the key.
   if (message.type === "CLOSER_ELIGIBLE") {
     const userId = message.userId;
     getStoredApiKey().then((key) => {
@@ -401,15 +405,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       fetch(`${CONFIG.CLOSER_API}/api/config/allowed-closers/${userId}`, {
         headers: { Authorization: `Bearer ${key}` },
       })
-        .then((r) => {
-          if (r.status === 403) return { allowed: false };
+        .then(async (r) => {
+          if (r.status === 403) {
+            const info = await handle403(r);
+            return { allowed: false, forbidden: true, revoked: info.revoked };
+          }
           return r.json();
         })
         .then((data) => {
+          if (data.forbidden) {
+            sendResponse({ success: false, eligible: false, forbidden: true, revoked: !!data.revoked });
+            return;
+          }
           const eligible = !!data.allowed || data.explicit_list === false;
           sendResponse({ success: true, eligible });
         })
         .catch(() => sendResponse({ success: false, eligible: false }));
+    }).catch((err) => {
+      console.error("[BG] getStoredApiKey() failed:", err);
+      sendResponse({ success: false, eligible: false });
     });
     return true;
   }
@@ -1387,7 +1401,13 @@ async function doCoachFetch(chatInput, chatSessionId) {
   }
 
   // Regular JSON
-  const data = JSON.parse(bodyText);
+  let data;
+  try {
+    data = JSON.parse(bodyText);
+  } catch (e) {
+    console.error("[BG] Coach response not valid JSON:", bodyText.substring(0, 200));
+    throw new Error("Backend returned invalid response");
+  }
   console.log("[BG] Coach response keys:", Object.keys(data));
   const botResponse = unwrapCoachResponse(data);
   return { success: true, botResponse: botResponse };
@@ -1505,7 +1525,12 @@ async function doScoreFetch(transcript, scoreSessionId) {
     }
     data = { output: accumulated };
   } else {
-    data = JSON.parse(bodyText);
+    try {
+      data = JSON.parse(bodyText);
+    } catch (e) {
+      console.error("[BG] Score response not valid JSON:", bodyText.substring(0, 200));
+      throw new Error("Backend returned invalid response");
+    }
   }
 
   console.log("[BG] Score RAW response:", JSON.stringify(data).substring(0, 500));
