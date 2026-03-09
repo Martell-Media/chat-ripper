@@ -294,53 +294,123 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- Closer Bot Config API handlers ---
+  // --- Closer Bot Config API handlers (Bearer auth) ---
+
+  // Helper: differentiate revoked key from no-scope 403
+  // clearRevokedKey() is intentionally fire-and-forget (no await) —
+  // we only need the side effect (storage removal), not the return value
+  async function handle403(r) {
+    const body = await r.json().catch(() => ({}));
+    const revoked = (body.detail || "").includes("Invalid or revoked");
+    if (revoked) clearRevokedKey();
+    return { forbidden: true, revoked };
+  }
+
   if (message.type === "CLOSER_CHECK") {
     const cid = message.contactId;
-    console.log("[BG] CLOSER_CHECK for", cid);
-    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        sendResponse({ success: true, whitelisted: !!data.whitelisted });
+    getStoredApiKey().then((key) => {
+      if (!key) { sendResponse({ success: false, whitelisted: false }); return; }
+      fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+        headers: { Authorization: `Bearer ${key}` },
       })
-      .catch((err) => {
-        console.error("[BG] CLOSER_CHECK error:", err);
-        sendResponse({ success: false, whitelisted: false });
-      });
+        .then(async (r) => {
+          if (r.status === 403) {
+            const info = await handle403(r);
+            return { whitelisted: false, ...info };
+          }
+          return r.json();
+        })
+        .then((data) => sendResponse({
+          success: true,
+          whitelisted: !!data.whitelisted,
+          forbidden: !!data.forbidden,
+          revoked: !!data.revoked,
+        }))
+        .catch(() => sendResponse({ success: false, whitelisted: false }));
+    });
     return true;
   }
 
   if (message.type === "CLOSER_ADD") {
     const cid = message.contactId;
-    console.log("[BG] CLOSER_ADD for", cid);
-    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      method: "POST",
-      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
-    })
-      .then((r) => r.json())
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => {
-        console.error("[BG] CLOSER_ADD error:", err);
-        sendResponse({ success: false });
-      });
+    getStoredApiKey().then((key) => {
+      if (!key) { sendResponse({ success: false }); return; }
+      fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      })
+        .then(async (r) => {
+          if (r.status === 403) {
+            const info = await handle403(r);
+            return { forbidden: true, revoked: info.revoked };
+          }
+          if (!r.ok) throw new Error("Failed");
+          return r.json();
+        })
+        .then((data) => sendResponse({
+          success: !data.forbidden,
+          data,
+          forbidden: !!data.forbidden,
+          revoked: !!data.revoked,
+        }))
+        .catch(() => sendResponse({ success: false }));
+    });
     return true;
   }
 
   if (message.type === "CLOSER_REMOVE") {
     const cid = message.contactId;
-    console.log("[BG] CLOSER_REMOVE for", cid);
-    fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
-      method: "DELETE",
-      headers: { "X-API-Key": CONFIG.CLOSER_API_KEY },
-    })
-      .then((r) => r.json())
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => {
-        console.error("[BG] CLOSER_REMOVE error:", err);
-        sendResponse({ success: false });
-      });
+    getStoredApiKey().then((key) => {
+      if (!key) { sendResponse({ success: false }); return; }
+      fetch(`${CONFIG.CLOSER_API}/api/config/allowed-inboxes/${cid}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${key}` },
+      })
+        .then(async (r) => {
+          if (r.status === 403) {
+            const info = await handle403(r);
+            return { forbidden: true, revoked: info.revoked };
+          }
+          if (!r.ok) throw new Error("Failed");
+          return r.json();
+        })
+        .then((data) => sendResponse({
+          success: !data.forbidden,
+          data,
+          forbidden: !!data.forbidden,
+          revoked: !!data.revoked,
+        }))
+        .catch(() => sendResponse({ success: false }));
+    });
+    return true;
+  }
+
+  // CLOSER_ELIGIBLE — check if contact's closer is in allowed_closer_ids
+  // Simplified 403 handling: no handle403() call here. This handler only runs
+  // after CLOSER_CHECK succeeds (scope already validated). A 403 here means
+  // the key was revoked in the narrow window between the two calls — treating
+  // it as "not eligible" is safe; the next contact change triggers a fresh
+  // CLOSER_CHECK which will detect the revocation and clear the key.
+  if (message.type === "CLOSER_ELIGIBLE") {
+    const userId = message.userId;
+    getStoredApiKey().then((key) => {
+      if (!key || !userId) {
+        sendResponse({ success: false, eligible: false });
+        return;
+      }
+      fetch(`${CONFIG.CLOSER_API}/api/config/allowed-closers/${userId}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      })
+        .then((r) => {
+          if (r.status === 403) return { allowed: false };
+          return r.json();
+        })
+        .then((data) => {
+          const eligible = !!data.allowed || data.explicit_list === false;
+          sendResponse({ success: true, eligible });
+        })
+        .catch(() => sendResponse({ success: false, eligible: false }));
+    });
     return true;
   }
 });

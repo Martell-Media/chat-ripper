@@ -518,6 +518,7 @@
       type: "dm_thread",
       contactName: contactName,
       contactId: contactId,
+      userId: contact?.user_id || null,
       conversation: thread.join("\n\n"),
       messageCount: messages.length,
       messages: messages,

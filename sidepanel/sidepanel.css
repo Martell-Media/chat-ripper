@@ -2001,6 +2001,22 @@ body {
   animation: sp-logo-glow 2s ease-in-out infinite;
 }
 
+/* Loading state: reuse radar pulse at reduced intensity */
+.sp-logo-wrap.agent-loading .sp-logo-pulse-ring {
+  animation: sp-radar-pulse 2s ease-out infinite;
+  opacity: 0.4;
+}
+
+/* Respect motion preferences — covers both active and loading pulse */
+@media (prefers-reduced-motion: reduce) {
+  .sp-logo-wrap.agent-active .sp-logo-pulse-ring,
+  .sp-logo-wrap.agent-active .sp-logo-pulse-ring-2,
+  .sp-logo-wrap.agent-active .sp-logo,
+  .sp-logo-wrap.agent-loading .sp-logo-pulse-ring {
+    animation: none;
+  }
+}
+
 @keyframes sp-radar-pulse {
   0% {
     width: 38px;

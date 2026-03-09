@@ -336,8 +336,7 @@ chrome.runtime.onMessage.addListener((message) => {
     const switchId = closerContactId;
     currentFullPage = null;
     updateHud();
-    setAgentActive(false); // Immediately hide agent bar — re-evaluated after CLOSER_CHECK
-    setAgentDisabled(false); // Reset — re-evaluated after scrape
+    setAgentBarState("loading");
 
     chrome.runtime.sendMessage({ type: "SCRAPE_PAGE" }, (resp) => {
       if (closerContactId !== switchId) return;
@@ -348,17 +347,31 @@ chrome.runtime.onMessage.addListener((message) => {
 
         // Email channels: disable toggle, skip CLOSER_CHECK
         if (resp.data.type === "unsupported_channel") {
-          setAgentActive(false);
-          setAgentDisabled(true);
+          setAgentBarState("disabled", "Not available for email contacts");
           return;
         }
-        setAgentDisabled(false);
       }
       // DM channels: check whitelist status
       chrome.runtime.sendMessage({ type: "CLOSER_CHECK", contactId: switchId }, (r) => {
         if (closerContactId !== switchId) return;
-        const whitelisted = !chrome.runtime.lastError && r && r.success && r.whitelisted;
-        setAgentActive(whitelisted);
+        if (chrome.runtime.lastError || !r || !r.success) {
+          setAgentBarState("hidden");
+          return;
+        }
+        if (r.revoked) { setAgentBarState("hidden"); return; }
+        if (r.forbidden) { setAgentBarState("hidden"); return; }
+        if (r.whitelisted) { setAgentBarState("on"); return; }
+        // Not whitelisted — check eligibility
+        const userId = currentFullPage && currentFullPage.userId;
+        if (!userId) { setAgentBarState("disabled", "Closer Bot not enabled for this rep"); return; }
+        chrome.runtime.sendMessage({ type: "CLOSER_ELIGIBLE", userId }, (er) => {
+          if (closerContactId !== switchId) return;
+          if (er && er.success && er.eligible) {
+            setAgentBarState("off");
+          } else {
+            setAgentBarState("disabled", "Closer Bot not enabled for this rep");
+          }
+        });
       });
     });
   }
@@ -382,11 +395,10 @@ function autoAnalyze() {
     // Email channel: show unsupported message, disable toggle, stop
     if (scraped && scraped.type === "unsupported_channel") {
       setGenerating(false);
-      setAgentDisabled(true);
+      setAgentBarState("disabled", "Not available for email contacts");
       showUnsupportedChannel(scraped.channel, scraped.contactName);
       return;
     }
-    setAgentDisabled(false);
 
     if (!scraped || !scraped.conversation || scraped.conversation.trim().length < 10) {
       setGenerating(false);
@@ -401,11 +413,28 @@ function autoAnalyze() {
     // Auto-check Closer Bot whitelist on Revio pages
     if (currentPlatform === "revio" && scraped.contactId) {
       closerContactId = scraped.contactId;
-      chrome.runtime.sendMessage({ type: "CLOSER_CHECK", contactId: closerContactId }, (r) => {
-        if (chrome.runtime.lastError) return;
-        if (r && r.success) {
-          setAgentActive(r.whitelisted);
+      const switchId = closerContactId;
+      setAgentBarState("loading");
+      chrome.runtime.sendMessage({ type: "CLOSER_CHECK", contactId: switchId }, (r) => {
+        if (closerContactId !== switchId) return;
+        if (chrome.runtime.lastError || !r || !r.success) {
+          setAgentBarState("hidden");
+          return;
         }
+        if (r.revoked) { setAgentBarState("hidden"); return; }
+        if (r.forbidden) { setAgentBarState("hidden"); return; }
+        if (r.whitelisted) { setAgentBarState("on"); return; }
+        // Not whitelisted — check eligibility
+        const userId = currentFullPage && currentFullPage.userId;
+        if (!userId) { setAgentBarState("disabled", "Closer Bot not enabled for this rep"); return; }
+        chrome.runtime.sendMessage({ type: "CLOSER_ELIGIBLE", userId }, (er) => {
+          if (closerContactId !== switchId) return;
+          if (er && er.success && er.eligible) {
+            setAgentBarState("off");
+          } else {
+            setAgentBarState("disabled", "Closer Bot not enabled for this rep");
+          }
+        });
       });
     }
 
@@ -1174,10 +1203,44 @@ function showUnsupportedChannel(channel, contactName) {
   </div>`;
 }
 
-function setAgentDisabled(disabled) {
-  agentLogoBtn.style.opacity = disabled ? "0.4" : "";
-  agentLogoBtn.style.pointerEvents = disabled ? "none" : "";
-  agentLogoBtn.title = disabled ? "Not available for email contacts" : "";
+function setAgentBarState(state, message) {
+  agentLogoBtn.classList.remove("agent-loading");
+
+  if (state === "on") {
+    setAgentActive(true);
+    agentLogoBtn.style.opacity = "";
+    agentLogoBtn.style.pointerEvents = "";
+    agentLogoBtn.title = "";
+    return;
+  }
+
+  setAgentActive(false);
+
+  switch (state) {
+    case "hidden":
+    case "off":
+      agentLogoBtn.style.opacity = "";
+      agentLogoBtn.style.pointerEvents = "";
+      agentLogoBtn.title = "";
+      break;
+    case "disabled":
+      agentLogoBtn.style.opacity = "0.4";
+      agentLogoBtn.style.pointerEvents = "none";
+      agentLogoBtn.title = message || "Closer Bot not enabled for this rep";
+      if (agentStatusText) {
+        agentStatusText.textContent = message || "Closer Bot not enabled for this rep";
+      }
+      agentBar.style.display = "";
+      break;
+    case "loading":
+      agentLogoBtn.classList.add("agent-loading");
+      agentLogoBtn.style.opacity = "0.6";
+      agentLogoBtn.style.pointerEvents = "none";
+      agentLogoBtn.title = "Checking...";
+      if (agentStatusText) agentStatusText.textContent = "Checking...";
+      agentBar.style.display = "";
+      break;
+  }
 }
 
 // ===== Chat Mode =====
@@ -1906,16 +1969,32 @@ chrome.storage.local.get("agentEnabled", (result) => {
 agentLogoBtn.addEventListener("click", () => {
   // On Revio pages with a contact — toggle via Closer Bot Config API
   if (currentPlatform === "revio" && closerContactId) {
+    const capturedId = closerContactId;
     const isCurrentlyActive = agentLogoBtn.classList.contains("agent-active");
+
     if (isCurrentlyActive) {
-      chrome.runtime.sendMessage({ type: "CLOSER_REMOVE", contactId: closerContactId }, (r) => {
-        if (chrome.runtime.lastError) return;
-        setAgentActive(false);
+      // ON → OFF: optimistic
+      setAgentBarState("off");
+      chrome.runtime.sendMessage({ type: "CLOSER_REMOVE", contactId: capturedId }, (r) => {
+        if (closerContactId !== capturedId) return;
+        if (chrome.runtime.lastError || !r || !r.success) {
+          if (r && r.revoked) { setAgentBarState("hidden"); return; }
+          if (r && r.forbidden) { setAgentBarState("hidden"); return; }
+          setAgentBarState("on"); // revert — removal failed
+          return;
+        }
       });
     } else {
-      chrome.runtime.sendMessage({ type: "CLOSER_ADD", contactId: closerContactId }, (r) => {
-        if (chrome.runtime.lastError) return;
-        setAgentActive(true);
+      // OFF → ON: optimistic
+      setAgentBarState("on");
+      chrome.runtime.sendMessage({ type: "CLOSER_ADD", contactId: capturedId }, (r) => {
+        if (closerContactId !== capturedId) return;
+        if (chrome.runtime.lastError || !r || !r.success) {
+          if (r && r.revoked) { setAgentBarState("hidden"); return; }
+          if (r && r.forbidden) { setAgentBarState("hidden"); return; }
+          setAgentBarState("off"); // revert — addition failed
+          return;
+        }
       });
     }
     return;
