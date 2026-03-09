@@ -4,19 +4,21 @@ Review of the entire ChatRipper AI Chrome extension prior to CWS submission.
 
 **Verdict**: DENY — 7 actionable issues to address before submission.
 
+**Status**: 3 fixed (#1, #2, #6), 1 false positive (#7), 3 open (#3, #4, #5).
+
 ## Critical (2)
 
-### 1. `handle403` scoped inside listener callback
+### 1. ~~`handle403` scoped inside listener callback~~ — FIXED
 
 - **File**: `service-worker.js:302`
 - **Issue**: Function declared inside the `onMessage` listener callback. If called from another handler, it's undefined.
-- **Fix**: Move `handle403` to module scope.
+- **Fix**: Moved `handle403` to module scope (commit 7e82aec).
 
-### 2. No `.catch()` on `getStoredApiKey()` promise chains
+### 2. ~~No `.catch()` on `getStoredApiKey()` promise chains~~ — FIXED
 
 - **File**: `service-worker.js:311-414`
 - **Issue**: Unhandled promise rejections crash the service worker silently.
-- **Fix**: Add `.catch()` to all `getStoredApiKey()` call chains.
+- **Fix**: Added `.catch()` to CLOSER_CHECK, CLOSER_ADD, CLOSER_REMOVE, and CLOSER_ELIGIBLE chains (commit 7e82aec).
 
 ## Important (4)
 
@@ -38,11 +40,11 @@ Review of the entire ChatRipper AI Chrome extension prior to CWS submission.
 - **Issue**: Keeps running even after navigating away from Revio pages. Wastes CPU.
 - **Fix**: Store the interval ID and clear it on page navigation or cleanup.
 
-### 6. `JSON.parse(bodyText)` without try/catch in `doCoachFetch`
+### 6. ~~`JSON.parse(bodyText)` without try/catch in `doCoachFetch`~~ — FIXED
 
 - **File**: `service-worker.js:1390`
 - **Issue**: Malformed response from backend crashes the handler.
-- **Fix**: Wrap in try/catch, return user-friendly error.
+- **Fix**: Wrapped `JSON.parse` in try/catch in both `doCoachFetch` and `doScoreFetch` (commit 7e82aec).
 
 ## Medium (1)
 
