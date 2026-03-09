@@ -89,16 +89,25 @@ ChatRipper and closer-bot are independent systems. ChatRipper manages the closer
 
 ### 3.4 Closer-Bot Toggle (Revio Only)
 
+<!-- Updated 2026-03-09: B3 implemented 5-state agent bar with eligibility check and per-rep Bearer auth -->
+
 1. Rep opens side panel on a Revio contact (DM channel only)
-2. Side panel auto-checks closer-bot whitelist status via `close.alfredloh.com`
-3. Agent bar shows "Bot active for {name}..." if contact is whitelisted
-4. Rep clicks logo button to toggle bot on/off (CLOSER_ADD / CLOSER_REMOVE)
-5. When bot is active and rep inserts a reply: warning toast appears (non-blocking)
+2. Agent bar shows **loading** state while checking eligibility
+3. Extension checks closer-bot whitelist (CLOSER_CHECK) and operational rollout (CLOSER_ELIGIBLE)
+4. Agent bar resolves to one of 5 states: **hidden** (no key / 403), **disabled** (rep not in rollout), **off** (eligible, bot inactive), **on** (bot active), **loading** (checking)
+5. Rep clicks logo button to toggle between on/off — **optimistic**: visual state changes immediately, reverts on failure
+6. When bot is active and rep inserts a reply: warning toast appears (non-blocking)
+
+**Eligibility flow:**
+- Key rejected (revoked/no closer scope) → agent bar hidden, key cleared if revoked
+- Key accepted, closer not in `allowed_closer_ids` → agent bar disabled ("not enabled for this rep")
+- Key accepted, closer in rollout, contact not whitelisted → agent bar off (can toggle on)
+- Key accepted, closer in rollout, contact whitelisted → agent bar on
 
 **Constraints:**
-- Email contacts: agent toggle disabled (dimmed, no clicks)
+- Email contacts: agent toggle disabled (dimmed, no clicks, "Not available for email contacts")
 - Non-Revio platforms: toggle is local-only (no closer-bot link)
-- No auto-detection of contact navigation -- manual trigger or re-open side panel
+- Rapid contact switches: stale callback guards (`switchId` capture) prevent race conditions
 
 ### 3.5 Engine Switch
 
@@ -136,17 +145,23 @@ ChatRipper and closer-bot are independent systems. ChatRipper manages the closer
 | FR-2.3 | Email channel blocking | Launch | Email/sms-email contacts return `unsupported_channel`. Side panel shows "Email not supported" message. No backend call made. No wasted fetchRevioMessages() call. |
 | FR-2.4 | Agent toggle disabled for email | Launch | Agent logo button dimmed (opacity 0.4), pointer-events none, tooltip: "Not available for email contacts" |
 | FR-2.5 | Score/Coach no-op for email | Launch | Score and Coach buttons silently no-op when currentFullPage is unsupported_channel |
-| FR-2.6 | Contact switch detection | Launch | REVIO_CONTACT_CHANGED resets agent bar (setAgentActive(false)), resets disabled state (setAgentDisabled(false)), re-scrapes and re-checks whitelist |
+<!-- Updated 2026-03-09: B3 replaced setAgentActive/setAgentDisabled with unified setAgentBarState -->
+| FR-2.6 | Contact switch detection | Launch | REVIO_CONTACT_CHANGED triggers full eligibility re-check: shows loading state, re-scrapes page, checks whitelist + operational rollout. Stale callback guards prevent race conditions during rapid switches. |
 
 ### FR-3: Closer-Bot Management
 
+<!-- Updated 2026-03-09: B3 expanded scope — 5-state agent bar, operational rollout, per-rep Bearer auth, optimistic toggle -->
+
 | ID | Requirement | Priority | Acceptance Criteria |
 |----|-------------|----------|-------------------|
-| FR-3.1 | Whitelist check on load | Launch | Side panel checks CLOSER_CHECK on open when contactId is present |
-| FR-3.2 | Toggle on/off | Launch | Logo button calls CLOSER_ADD or CLOSER_REMOVE. Agent bar updates accordingly. |
+| FR-3.1 | Whitelist check on load | Launch | Side panel checks CLOSER_CHECK with Bearer auth on open when contactId is present. 403 differentiated: revoked key clears storage + re-shows gate; no-scope 403 hides agent bar. |
+| FR-3.2 | Toggle on/off | Launch | Logo button calls CLOSER_ADD or CLOSER_REMOVE with Bearer auth. **Optimistic**: visual state changes immediately on click, reverts on API failure. |
 | FR-3.3 | Agent bar display | Launch | Shows "Bot active for {name}..." with rotating status messages when active |
-| FR-3.4 | Insert warning toast | Launch | Non-blocking warning toast when inserting reply on bot-managed contact. Bot's Ably listener cancels pending timer on human send. Toast is safety net, not gate. |
-| FR-3.5 | Email contacts excluded | Launch | CLOSER_CHECK skipped for email channels. Toggle disabled. |
+| FR-3.4 | Insert warning toast | Launch | Non-blocking warning toast when inserting reply on bot-managed contact. Bot's Ably listener cancels pending timer on human send. Toast is safety net, not gate. Auto-dismiss after 4s with fade-out. |
+| FR-3.5 | Email contacts excluded | Launch | Agent bar shows disabled state ("Not available for email contacts"). Toggle dimmed, no pointer events. |
+| FR-3.6 | 5-state agent bar | Launch | Agent bar has 5 distinct states: **hidden** (no key, 403), **loading** (pulse animation, checking API), **disabled** (opacity 0.4, no pointer events, tooltip), **off** (eligible but inactive), **on** (active with pulse). Each state driven by eligibility flow outcome. |
+| FR-3.7 | Operational rollout check | Launch | After whitelist check, CLOSER_ELIGIBLE verifies the contact's assigned closer (`userId`) is in `allowed_closer_ids`. Reps not in rollout see disabled state. This separates key authorization (can access closer API) from operational rollout (can use Closer Bot). |
+| FR-3.8 | Stale callback guards | Launch | All async closer API callbacks capture `switchId` at call time and early-return if contact changed during the request. Prevents stale state on rapid contact navigation. |
 
 ### FR-4: Conversation Scoring
 
@@ -184,7 +199,8 @@ ChatRipper and closer-bot are independent systems. ChatRipper manages the closer
 | FR-8.1 | First-run gate | Launch | If no API key in chrome.storage.local, side panel shows setup screen before any feature works. Gate blocks all features (autoAnalyze, Score, Coach, agent toggle). |
 | FR-8.2 | Key validation | Launch | Validation routes through service worker (only context with CONFIG.SMARTRIP_API access). Sends POST /suggest with Bearer header — 401/403 = invalid key, any other status = key passed auth middleware (valid). Invalid key shows "Invalid key -- contact Alfred" with reset option. |
 | FR-8.3 | Per-rep keys | Launch | Unique key per rep (e.g., cr_adam_xxxx). Dashboard shows per-rep usage. |
-| FR-8.4 | Remove hardcoded key | Launch | Remove ALFRED_KEY from service-worker.js. Closer-bot key relocated to `config.js` as `CONFIG.CLOSER_API_KEY`. |
+<!-- Updated 2026-03-09: B3 removed CLOSER_API_KEY from config.js — closer-bot now uses same per-rep Bearer token -->
+| FR-8.4 | Remove hardcoded keys | Launch | Remove ALFRED_KEY from service-worker.js. Closer-bot API uses the same per-rep Bearer token as smartrip — no separate closer key. Single key authenticates across both services. |
 <!-- Updated 2026-03-07: A3 implemented (commit b76779c). Gap closed — 403 auto-detection + onChanged listener now re-show gate immediately. -->
 | FR-8.5 | Key revocation | Launch | Revoking a key on the backend causes 401/403 on next API call → extension clears stored key and re-shows setup gate automatically. Two mechanisms: (1) `handleAlfredResponse` / streaming status check detect 401/403, clear key via `clearRevokedKey()`, propagate `key_revoked` flag through error responses to sidepanel. (2) `chrome.storage.onChanged` listener in sidepanel detects key removal from any context and shows gate immediately — no API call needed. |
 
@@ -200,6 +216,8 @@ ChatRipper and closer-bot are independent systems. ChatRipper manages the closer
 | NFR-4 | Usability | Self-explanatory | No training required. Reference guide web page post-launch. |
 | NFR-5 | Distribution updates | Automatic | CWS handles auto-updates for unlisted extensions (every few hours) |
 | NFR-6 | Browser support | Chrome only | No formal OS requirements |
+<!-- Updated 2026-03-09: B3 established deploy order requirement -->
+| NFR-7 | Deploy order | Backend first | Closer-bot backend must deploy before extension update. Backend accepts both Bearer (new) and X-API-Key (legacy) during transition window. Extension then ships with Bearer-only. Prevents auth failures during rollout. |
 
 ---
 
@@ -272,6 +290,23 @@ The smartrip analysis panel has terminology and layout issues.
 - Toast is awareness, not a gate. Bot's Ably listener cancels pending timer on human send.
 - Can upgrade to confirm dialog or auto-deactivate if double-replies become a real problem.
 
+### 7.5 Agent Bar States (Launch)
+
+<!-- Updated 2026-03-09: B3 introduced 5-state agent bar. Functional behavior in FR-3.6. -->
+
+The agent bar has 5 visual states (see FR-3.6 for triggers):
+
+| State | Visual | Interaction |
+|-------|--------|-------------|
+| hidden | Agent bar not visible | N/A |
+| loading | Pulse animation, opacity 0.6 | No pointer events |
+| disabled | Opacity 0.4, tooltip message | No pointer events |
+| off | Normal appearance, no pulse | Click to toggle on |
+| on | Active pulse rings + glow | Click to toggle off |
+
+- `prefers-reduced-motion`: all pulse animations suppressed (both active and loading states)
+- Optimistic toggle: on↔off changes visually on click, reverts on API failure
+
 ### 7.3 Controls Bar Overflow Fix (Post-Launch)
 
 - Coach button exists in HTML but is hidden by controls bar overflow (bar too wide for side panel)
@@ -303,7 +338,15 @@ The smartrip analysis panel has terminology and layout issues.
   <!-- Updated 2026-03-07: A3 closed the revocation gap. Two mechanisms provide immediate gate display. -->
   - Revoke individual key on departure → next API call returns 401/403 → key cleared, gate shown automatically. `chrome.storage.onChanged` listener also detects external key removal (e.g., Chrome clear data) and shows gate immediately without waiting for an API call.
   - Dashboard shows per-rep usage breakdowns
-  - Hardcoded `ALFRED_KEY` removed from service-worker.js. Closer-bot key relocated to `config.js`.
+  <!-- Updated 2026-03-09: B3 removed CLOSER_API_KEY — closer-bot uses same per-rep key -->
+  - Hardcoded `ALFRED_KEY` removed from service-worker.js. Closer-bot uses same per-rep Bearer token (no separate key).
+
+<!-- Updated 2026-03-09: B3 unified closer-bot under per-rep Bearer auth -->
+- **Closer-bot API (`close.alfredloh.com`):**
+  - Uses same per-rep Bearer token as smartrip — single key per rep, shared across services
+  - Backend accepts `Authorization: Bearer {key}` (extension) and `X-API-Key` (admin Streamlit dashboard) — dual auth
+  - Key scopes control service access: `smartrip` scope for /suggest, `closer` scope for closer-bot API
+  - No separate closer-bot key — `CLOSER_API_KEY` removed from `config.js`
 
 - **Chris's backends:** NO authentication. Railway URLs and n8n webhook URLs are effectively public (security through obscurity). Known and accepted risk for launch.
 
@@ -401,7 +444,8 @@ Backend API URLs scoped in host_permissions. `close.alfredloh.com` added for clo
 | Scenario | Current Behavior | Status |
 |----------|-----------------|--------|
 | Email channel contact (Revio) | `unsupported_channel` early return, "Email not supported" UI | Implemented |
-| Closer-bot stale state on contact switch | `setAgentActive(false)` on every contact switch | Fixed |
+<!-- Updated 2026-03-09: B3 replaced simple reset with full 5-state re-check + switchId guards -->
+| Closer-bot stale state on contact switch | Full eligibility re-check with `switchId` capture guards stale callbacks. Loading state shown during check. | Fixed (B3) |
 | Long conversations | No truncation, no issues reported | Monitor |
 | Backend timeout | Error message + retry button | Existing |
 | No conversation on page | "No conversation detected" empty state | Existing |
@@ -410,6 +454,11 @@ Backend API URLs scoped in host_permissions. `close.alfredloh.com` added for clo
 | Non-Revio platforms | DOM scraping fallback, no Rocket Selling enrichment | By design |
 <!-- Updated 2026-03-07: A3 closed this gap -->
 | Revoked key after setup | 401/403 from smartrip → key auto-cleared, gate re-appears. `onChanged` listener provides immediate gate display even for external key removal. | Fixed (A3) |
+<!-- Updated 2026-03-09: B3 edge cases -->
+| Closer 403: revoked key vs no scope | Extension string-matches `body.detail` on "Invalid or revoked" to differentiate. Revoked → clear key + gate. No scope → hide agent bar only. | Fixed (B3) |
+| Rapid contact switching during API calls | `switchId` capture pattern: callbacks compare captured ID to current `closerContactId`, early-return if stale. | Fixed (B3) |
+| Rep not in operational rollout | CLOSER_ELIGIBLE returns false → agent bar disabled with tooltip. Key still works for smartrip. | Fixed (B3) |
+| Optimistic toggle API failure | Visual state reverts to previous on CLOSER_ADD/REMOVE failure. Revoked/forbidden 403 → hidden instead of revert. | Fixed (B3) |
 | Controls bar overflow | Coach button hidden on narrow side panels | UX bug (see 7.3) |
 | Floating button | Dead code, never shown | Dormant (see 7.4) |
 
@@ -425,15 +474,16 @@ Backend API URLs scoped in host_permissions. `close.alfredloh.com` added for clo
 
 **Test structure:**
 <!-- Updated 2026-03-07: Added A3 bearer-header tests -->
-<!-- Updated 2026-03-07: Added B2 analysis-panel tests -->
+<!-- Updated 2026-03-09: Added B3 warning-toast tests -->
 ```
 tests/
 ├── mocks/
 │   └── chrome.js           # Chrome API stubs (storage.local, runtime, session)
 └── unit/
-    ├── first-run-gate.test.js   # A2 — gate display, key storage, reset
-    ├── bearer-header.test.js    # A3 — auth helpers, key revocation, error shape
-    └── analysis-panel.test.js   # B2 — MATCH label, colors, warning row, tooltip, XSS
+    ├── first-run-gate.test.js   # A2 — gate display, key storage, reset (5 tests)
+    ├── bearer-header.test.js    # A3 — auth helpers, key revocation, error shape (5 tests)
+    ├── analysis-panel.test.js   # B2 — MATCH label, colors, warning row, tooltip, XSS (18 tests)
+    └── warning-toast.test.js    # B3 — toast display, auto-dismiss, non-blocking insert (8 tests)
 ```
 
 **Chrome mock** (`tests/mocks/chrome.js`): Stubs `chrome.storage.local` (get/set/remove), `chrome.storage.session`, and `chrome.runtime` (sendMessage, connect). Storage is reset between tests via `beforeEach`.
@@ -503,7 +553,8 @@ Not realistic for a solo developer with a Chrome extension. Manual testing is th
 | Privacy policy (CWS requirement) | **TODO** |
 | Restrict content_scripts to known domains | Implemented |
 | Smartrip analysis panel redesign (MATCH rename, color coding, warning row, remove duplication) | Implemented |
-| Closer-bot insert warning toast | **TODO** |
+<!-- Updated 2026-03-09: B3 scope expanded to include extension toggle + per-rep Bearer auth on closer API -->
+| Closer-bot insert warning toast + extension toggle (per-rep auth, 5-state agent bar) | Implemented |
 | Domain-restricted CWS installation | **TODO** |
 | CWS unlisted submission | **TODO** |
 
@@ -527,9 +578,10 @@ Not realistic for a solo developer with a Chrome extension. Manual testing is th
 
 ## Appendix A: Closer-Bot Interaction Model
 
-When a rep toggles the closer-bot on for a contact:
+<!-- Updated 2026-03-09: B3 added Bearer auth and eligibility check -->
+When a rep toggles the closer-bot on for a contact (requires per-rep Bearer auth + `closer` scope + rep in `allowed_closer_ids`):
 
-1. Contact is added to `ALLOWED_INBOXES` via `close.alfredloh.com`
+1. Contact is added to `ALLOWED_INBOXES` via `close.alfredloh.com` (Bearer auth)
 2. Closer-bot (separate system) monitors Ably WebSocket for incoming messages
 3. On eligible inbound message: bot calls `/suggest`, waits, then auto-sends reply via Revio API
 4. If rep sends manually (direction="sent" via Ably): bot cancels pending timer
@@ -543,8 +595,9 @@ ChatRipper shows the agent bar as informational. It does NOT block reply generat
 
 | Platform | Scraping | Insert Reply | Rocket Selling Data | Closer-Bot Toggle |
 |----------|----------|-------------|--------------------|--------------------|
-| Revio (DM channels) | API | textarea | Yes | Yes |
-| Revio (email channels) | Blocked | N/A | N/A | Disabled |
+<!-- Updated 2026-03-09: B3 — closer-bot toggle requires eligibility (key scope + rollout check) -->
+| Revio (DM channels) | API | textarea | Yes | Yes (requires `closer` scope + rollout eligibility) |
+| Revio (email channels) | Blocked | N/A | N/A | Disabled ("Not available for email contacts") |
 | LinkedIn | DOM | contenteditable | No | Local only |
 | Gmail | DOM | contenteditable | No | Local only |
 | Instagram | DOM | contenteditable | No | Local only |

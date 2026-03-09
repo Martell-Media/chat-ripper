@@ -218,36 +218,74 @@ These tasks have no dependencies on each other or on Track A. Work on them while
 
 ---
 
-### B3. Closer-Bot Insert Warning Toast
+### B3. Closer-Bot Insert Warning Toast + Extension Toggle ✅
 
 > **Repo**: chat-ripper
-> **Files**: `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css`
-> **Effort**: 0.25 day
-> **Depends on**: Nothing
+> **Files**: `sidepanel/sidepanel.js`, `sidepanel/sidepanel.css`, `sidepanel/helpers.js`, `background/service-worker.js`, `config.js`, `content/content.js`, `tests/unit/warning-toast.test.js` (new)
+> **Specs**: `docs/specs/closer_bot_insert_warning_toast_spec.md`, `docs/specs/closer_bot_extension_toggle_spec.md`
+> **Effort**: 0.25 day (estimated) → 1 day (actual — scope expanded to include per-rep Bearer auth on closer API, 5-state agent bar, operational rollout)
+> **Depends on**: A3 (per-rep key in storage)
 > **Blocks**: C1
+> **Status**: **Implemented** — commits `c66bbf7`, `902f470`, `21a2b8d`, 8 tests pass
 
-**Scope**: Show a non-blocking warning toast when rep clicks Insert while closer-bot is active for the contact.
+**Original scope (warning toast)**: Show a non-blocking warning toast when rep clicks Insert while closer-bot is active for the contact.
 
-**PRD Source**: FR-3.4, Section 7.2
+**Expanded scope (extension toggle)**: Replace shared `CLOSER_API_KEY` with per-rep Bearer auth on closer-bot API. Introduce 5-state agent bar (hidden/loading/disabled/off/on), CLOSER_ELIGIBLE operational rollout check, optimistic toggle with revert on failure, `switchId` stale callback guards, `userId` propagation from content script, `prefers-reduced-motion` CSS.
 
-**Implementation**:
-1. In the Insert button click handler, check `agentActive` state
-2. If active, show toast: "Bot is active for this contact — your message will cancel its pending reply"
-3. Toast: amber background, auto-dismiss after 4s, positioned at top of sidepanel
-4. Non-blocking — insert proceeds immediately, toast is informational only
-5. CSS: `.sp-toast` with amber styling, fade-in/fade-out animation
+**PRD Source**: FR-3.1–3.8, FR-8.4, Section 7.2, Section 7.5
 
-**Tests** (`tests/test_warning_toast.js`):
-- `test_toast_shown_when_agent_active_on_insert` — toast appears
-- `test_toast_not_shown_when_agent_inactive` — no toast
-- `test_insert_proceeds_despite_toast` — insert function still called
-- `test_toast_auto_dismisses` — toast removed after timeout
+**Implementation (warning toast — commits `c66bbf7`, `902f470`)**:
+1. `shouldShowInsertWarning()` + `INSERT_WARNING_MSG` extracted to `sidepanel/helpers.js`
+2. `showInsertWarningToast()` in sidepanel.js — creates `.sp-toast` div, auto-dismiss after 4s with fade-out
+3. Called from Insert button click handler + Alt+I keyboard shortcut
+4. CSS: `.sp-toast` with dark opaque background, `sp-toast-in`/`sp-toast-out` animations
+5. `prefers-reduced-motion`: toast animations suppressed
+
+**Implementation (extension toggle — commit `21a2b8d`)**:
+1. Remove `CLOSER_API_KEY` from `config.js` — closer-bot uses same per-rep Bearer token
+2. Replace all 3 closer handlers (CLOSER_CHECK/ADD/REMOVE) with Bearer auth in service-worker.js
+3. Add `handle403()` helper — string-matches `body.detail` to differentiate revoked key vs no scope
+4. Add `CLOSER_ELIGIBLE` handler — checks `allowed_closers/{userId}` endpoint
+5. Add `userId` to content script scrape result (`contact.user_id`)
+6. Replace `setAgentDisabled()` with `setAgentBarState(state, message)` — unified 5-state controller
+7. Update `REVIO_CONTACT_CHANGED` handler — loading → scrape → CLOSER_CHECK → CLOSER_ELIGIBLE flow with `switchId` guards
+8. Update `autoAnalyze` Revio block — same 4-state flow with `switchId` guards
+9. Replace click handler with optimistic toggle — immediate visual change, revert on failure
+10. CSS: `.agent-loading` pulse animation, `prefers-reduced-motion` covers both active and loading states
+
+**Implementation discoveries**:
+- B3 scope expanded 4x: original WBS described a 0.25 day toast task, but cross-repo spec review identified the need to switch closer-bot from shared key to per-rep Bearer auth simultaneously — deploying the toast without auth migration would leave the shared key in place
+- Two specs needed: warning toast spec (320 lines) + extension toggle spec (590 lines), each went through 8+ review rounds across SE/architect/UX perspectives
+- `setAgentDisabled` deletion required migrating 3 call sites (REVIO_CONTACT_CHANGED, autoAnalyze, email path) — code review agent caught the autoAnalyze migration gap
+- `handle403` string-matching on `body.detail` creates a cross-repo contract — documented with warning comments in both repos
+- A2 bug fix discovered during B3 work: gate overlay used `position: absolute` instead of `position: fixed`, didn't cover scrolled sidepanel content (commit `b659e58`)
+
+**Tests** (`tests/unit/warning-toast.test.js` — 8 unit tests):
+- `shouldShowInsertWarning` — returns true when platform=revio, contactId set, agentActive=true
+- `shouldShowInsertWarning` — returns false when agent not active
+- `shouldShowInsertWarning` — returns false when no contactId
+- `shouldShowInsertWarning` — returns false on non-revio platform
+- `INSERT_WARNING_MSG` — contains expected message text
+- `shouldShowInsertWarning` — false when all conditions false
+- `shouldShowInsertWarning` — false when only platform matches
+- `shouldShowInsertWarning` — false when only contactId present
 
 **Verification**:
-- [ ] Activate bot for a contact → click Insert → toast appears
-- [ ] Reply is still inserted (non-blocking)
-- [ ] Toast disappears after ~4 seconds
-- [ ] Bot not active → Insert → no toast
+- [x] Activate bot for a contact → click Insert → toast appears
+- [x] Reply is still inserted (non-blocking)
+- [x] Toast disappears after ~4 seconds
+- [x] Bot not active → Insert → no toast
+- [x] CLOSER_CHECK/ADD/REMOVE send Bearer auth header (Network tab)
+- [x] No `X-API-Key` or `CLOSER_API_KEY` in requests
+- [x] Revoked key 403 → key cleared, gate re-appears
+- [x] No-scope 403 → agent bar hidden (key preserved)
+- [x] Rep not in `allowed_closer_ids` → agent bar disabled
+- [x] Rep in rollout, contact not whitelisted → agent bar off (can toggle on)
+- [x] Toggle on → optimistic visual, API call succeeds
+- [x] Toggle off → optimistic visual, API call succeeds
+- [x] Rapid contact switching → no stale state
+- [x] Email contact → agent bar disabled ("Not available for email contacts")
+- [x] All 36 tests pass (`npm test`)
 
 ---
 
@@ -325,22 +363,22 @@ Day 1 (March 6):                              STATUS
 Day 2 (March 7):
   Track A: A2 first-run gate                   ✅ Implemented (34d626e)
            A3 remove ALFRED_KEY + Bearer       ✅ Implemented (b76779c)
-  Track B: Not started                         ⬜ Deferred
+  Track B: B1 manifest restriction             ✅ Implemented (e392956)
+           B2 analysis panel redesign          ✅ Implemented (d4f1fec)
 
 Day 3 (March 8):
   Track A: Complete                            ✅ All auth tasks done
-  Track B: B1 manifest restriction             ✅ Implemented (e392956)
-           B2 analysis panel redesign          ✅ Implemented (d4f1fec)
-           B3 warning toast                    ⬜ 0.25 day
+  Track B: B3 warning toast                    ✅ Implemented (c66bbf7, 902f470)
+           B3 extension toggle (expanded)      ✅ Implemented (21a2b8d)
            B4 privacy policy                   ⬜ 0.5 day
 
 Day 4 (March 9):
-  Track B: Any overflow
-  C1: CWS submission                           ⬜ Depends on all above
+  Track B: B4 privacy policy                   ⬜ In progress
+  C1: CWS submission                           ⬜ Depends on B4
   Final integration testing
 ```
 
-**Schedule notes**: A track complete on Day 2. B1 + B2 completed on Day 2 evening. Remaining: B3 (0.25 day) + B4 (0.5 day) + C1 (0.5 day) = 1.25 days. Day 3 has full capacity. On track for Day 3-4 CWS submission.
+**Schedule notes**: All code tasks complete (A1-A3, B1-B3). B3 scope expanded from 0.25 day to ~1 day but completed on Day 3. Remaining: B4 (0.5 day) + C1 (0.5 day) = 1 day. Today is Day 4 — on track for same-day CWS submission if B4 is completed.
 
 ## Risk Register
 
@@ -361,7 +399,7 @@ Day 4 (March 9):
 | `tests/unit/first-run-gate.test.js` | A2 — gate storage, key persistence, reset | ✅ 5 tests |
 | `tests/unit/bearer-header.test.js` | A3 — auth helpers, key revocation, error shape | ✅ 5 tests |
 | `tests/unit/analysis-panel.test.js` | B2 — MATCH label, colors, warning row | ✅ 18 tests |
-| `tests/unit/warning-toast.test.js` | B3 — toast display, auto-dismiss, non-blocking | ⬜ |
+| `tests/unit/warning-toast.test.js` | B3 — toast guard logic, insert warning conditions | ✅ 8 tests |
 
 **Manual verification**: Each task has a checklist (see individual sections). Run through all checklists on Day 3-4 before CWS submission.
 
@@ -376,15 +414,16 @@ Day 4 (March 9):
 | `background/service-worker.js` | A2, A3, B2 | ✅ (VALIDATE_API_KEY + Bearer auth + key_revoked + analysis restructure) |
 | `config.js` | A3 | ✅ (CLOSER_API_KEY added) |
 | `sidepanel/helpers.js` | B2 (new) | ✅ (formatMatchValue, buildAnalysisHtml, escHtml, MATCH_TOOLTIP) |
-| `sidepanel/sidepanel.js` | A2, A3, B2, B3 | A2+A3+B2 done (gate + key_revoked + buildAnalysisHtml + remove reasoning) |
+| `sidepanel/sidepanel.js` | A2, A3, B2, B3 | ✅ (gate + key_revoked + buildAnalysisHtml + toast + setAgentBarState + optimistic toggle + switchId guards) |
 | `sidepanel/sidepanel.html` | A2, B2 | ✅ (gate HTML + key button + helpers.js script) |
-| `sidepanel/sidepanel.css` | A2, B2, B3 | A2+B2 done (gate + key button + warning row + tooltip + dead reasoning CSS removed) |
+| `sidepanel/sidepanel.css` | A2, B2, B3 | ✅ (gate + key button + warning row + tooltip + toast + agent-loading pulse + prefers-reduced-motion) |
+| `content/content.js` | B3 | ✅ (userId propagation from Revio contact) |
 | `docs/privacy-policy.md` | B4 (new) | ⬜ |
 | `tests/mocks/chrome.js` | A2 | ✅ (added remove(), fixed noParameterAssign) |
 | `tests/unit/first-run-gate.test.js` | A2 (new) | ✅ |
 | `tests/unit/bearer-header.test.js` | A3 (new) | ✅ |
 | `tests/unit/analysis-panel.test.js` | B2 (new) | ✅ |
-| `tests/unit/warning-toast.test.js` | B3 (new) | ⬜ |
+| `tests/unit/warning-toast.test.js` | B3 (new) | ✅ |
 
 ## Out of Scope (Post-Launch)
 
@@ -399,6 +438,35 @@ Day 4 (March 9):
 ---
 
 ## Change History
+
+### 2026-03-09 Update
+
+**Evidence source**: Commits `c66bbf7` (B3 toast), `902f470` (B3 toast fix), `b659e58` (A2 gate fix), `21a2b8d` (B3 extension toggle)
+
+**Completed tasks**:
+- **B3**: Implemented — 4 commits, 8 unit tests pass. Original scope was warning toast only (0.25 day). Expanded to include per-rep Bearer auth on closer API, 5-state agent bar, CLOSER_ELIGIBLE, optimistic toggle, switchId guards, userId propagation, prefers-reduced-motion. Two specs: `closer_bot_insert_warning_toast_spec.md` (320 lines) + `closer_bot_extension_toggle_spec.md` (590 lines).
+- **All code tasks complete** — A1-A3, B1-B3 done. Only B4 (privacy policy) and C1 (CWS submission) remain.
+
+**Scope expansion (B3)**:
+- Original WBS: 2 files, 0.25 day, toast only
+- Actual: 7 files + 2 specs, ~1 day, toast + extension toggle + Bearer auth migration
+- Cross-repo spec review (15+ rounds across SE/architect/UX) identified that deploying toast without auth migration would leave the shared `CLOSER_API_KEY` in place — both changes needed to ship together
+- Complexity: Low (estimated) → High (actual)
+
+**Bug fix (A2)**:
+- Gate overlay used `position: absolute` which didn't cover scrolled sidepanel content. Fixed to `position: fixed` in commit `b659e58`. Discovered during B3 manual testing.
+
+**Files added**:
+- `docs/specs/closer_bot_insert_warning_toast_spec.md` — B3 toast spec (320 lines, approved)
+- `docs/specs/closer_bot_extension_toggle_spec.md` — B3 toggle spec (590 lines, approved)
+- `tests/unit/warning-toast.test.js` — 8 unit tests
+
+**Schedule impact**:
+- 8 of 9 launch tasks complete. All code tasks done.
+- Remaining: B4 (0.5 day) + C1 (0.5 day) = 1 day
+- Today is Day 4 — on track for same-day CWS submission if B4 completed
+
+---
 
 ### 2026-03-07 Update (Evening)
 
@@ -489,19 +557,26 @@ Day 4 (March 9):
 - Chrome MV3 context boundaries drive architectural decisions — validation had to route through service worker because only it loads `config.js`
 - `Write` tool creates files with CRLF line endings — Biome flags these. Fix with `sed -i '' 's/\r$//'` after creating test files
 - Spec → multi-perspective review → implement workflow catches real bugs before code (autofocus, wrong line target, validation contract)
+- Cross-repo tasks consistently expand scope: A3 (2x) and B3 (4x) both started as "simple swaps" but spec review revealed auth migration, error handling, and cross-context concerns. Single-repo tasks (A2, B1, B2) estimated accurately.
+- Code review agents catch migration gaps: B3 autoAnalyze was left using deleted `setAgentDisabled` — caught by review before manual testing
 
 ### Estimation Accuracy
 - A2 estimated 0.5 day, actual 0.5 day — accurate. Spec + 6 review cycles + implementation fit within estimate
 - A3 estimated 0.25 day, actual 0.5 day — underestimated 2x. Original WBS described a simple header swap; spec review revealed 403 auto-detection gap, module extraction need, and cross-context error propagation complexity. Lesson: tasks that touch error handling across multiple execution contexts are consistently more complex than "swap X for Y" descriptions suggest.
 - B1 estimated 15 min, actual 15 min — accurate. Declarative manifest change, spec was straightforward.
 - B2 estimated 0.5 day, actual 0.5 day — accurate despite 3x file count expansion (2 → 6). Spec review caught the scope expansion early (service worker data layer, helpers extraction) before implementation started. Lesson: thorough spec review absorbs scope expansion into the estimate rather than causing rework.
+- B3 estimated 0.25 day, actual ~1 day — underestimated 4x. Original WBS described a simple toast; cross-repo spec review expanded scope to include Bearer auth migration, 5-state agent bar, and operational rollout. Lesson: tasks that span repo boundaries and require auth migration are categorically different from single-feature additions — they should be estimated as Medium/High from the start.
 - Dev environment setup was unplanned (~0.5 day) — should have been a WBS task
 
 ### Technical Decisions
 - Validation uses POST /suggest with minimal body (reuses existing endpoint, no backend changes needed)
-- Gate uses `position: absolute; inset: 0; z-index: 100` to fully cover sidepanel — prevents interaction with underlying UI
+- Gate uses `position: fixed; inset: 0; z-index: 100` to fully cover sidepanel — prevents interaction with underlying UI (fixed from `absolute` in commit `b659e58`)
 - Header key button uses neutral styling (muted → secondary on hover) to avoid competing with primary action buttons
 - `confirm()` dialog for reset — native browser dialog, not pretty but correct for a rare destructive action
 - B2: Analysis helpers extracted to `sidepanel/helpers.js` (same CJS export pattern as `background/auth.js`) — keeps rendering logic testable without DOM mocking
 - B2: Match colors use GitHub dark-mode palette (`#3fb950`/`#d29922`/`#f85149`) intentionally distinct from design system semantic colors (`--success`/`--warning`/`--error`) to avoid false "error" signal on low match scores
 - B2: Streaming DOM preserves "Energy" label for deeprip/quickrip — different backend field name, different metric. "Match" scoped to smartrip only via `buildAnalysisHtml()`
+- B3: `handle403` string-matches on `body.detail` to differentiate revoked key from no-scope — creates a cross-repo contract documented with warning comments in both repos
+- B3: `setAgentBarState` unified 5-state controller replaces separate `setAgentActive`/`setAgentDisabled` — single function, clear state machine
+- B3: `switchId` capture pattern prevents stale callbacks during rapid contact switches — simpler than debouncing, no race conditions
+- B3: Optimistic toggle pattern for responsive UX — immediate visual feedback, revert on failure rather than show loading state

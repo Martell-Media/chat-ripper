@@ -88,9 +88,11 @@ The extension runs in three isolated execution contexts with distinct capabiliti
 
 | Context | File | LOC | Responsibilities |
 |---------|------|-----|------------------|
-| Content Script | `content/content.js` | ~1460 | DOM access, Revio API scraping, platform detection, text selection, reply insertion |
-| Service Worker | `background/service-worker.js` + `background/auth.js` | ~1700 + 16 | Message broker, API gateway to all backends, auth header injection, key validation, key revocation, auto-fallback |
-| Side Panel | `sidepanel/sidepanel.js` + `sidepanel/helpers.js` | ~1900 + 47 | Reply display, chat/score UI, agent bar, streaming display, API key gate, storage change listener, state management. `helpers.js` extracts analysis rendering logic (`formatMatchValue`, `buildAnalysisHtml`) for testability — loaded via `<script>` before `sidepanel.js`. |
+| Content Script | `content/content.js` | ~1464 | DOM access, Revio API scraping (incl. `userId` propagation), platform detection, text selection, reply insertion |
+<!-- Updated 2026-03-09: B3 added handle403, CLOSER_ELIGIBLE handler, Bearer auth on all closer endpoints -->
+| Service Worker | `background/service-worker.js` + `background/auth.js` | ~1780 + 16 | Message broker, API gateway to all backends, auth header injection (Bearer on smartrip + closer-bot), key validation, key revocation, 403 differentiation (`handle403`), auto-fallback |
+<!-- Updated 2026-03-09: B3 added setAgentBarState (5-state), optimistic toggle, switchId guards, toast -->
+| Side Panel | `sidepanel/sidepanel.js` + `sidepanel/helpers.js` | ~2006 + 61 | Reply display, chat/score UI, 5-state agent bar (`setAgentBarState`), insert warning toast, optimistic toggle, streaming display, API key gate, storage change listener, state management. `helpers.js` extracts analysis rendering + toast guard logic for testability — loaded via `<script>` before `sidepanel.js`. |
 
 ### 2.2 Message Passing
 
@@ -108,9 +110,11 @@ Two communication patterns:
 | `SIDE_PANEL_READY` | sidepanel -> service worker | Panel loaded (informational only, does not trigger scraping) |
 | `VALIDATE_API_KEY` | sidepanel -> service worker | Validate key via POST /suggest with Bearer header. Returns `{success, error?}` |
 | `REVIO_CONTACT_CHANGED` | service worker -> sidepanel | Contact switch detected (via `webNavigation.onHistoryStateUpdated`) |
-| `CLOSER_CHECK` | sidepanel -> service worker | Check whitelist status |
-| `CLOSER_ADD` | sidepanel -> service worker | Add contact to whitelist |
-| `CLOSER_REMOVE` | sidepanel -> service worker | Remove from whitelist |
+<!-- Updated 2026-03-09: B3 added CLOSER_ELIGIBLE, all closer messages now use Bearer auth -->
+| `CLOSER_CHECK` | sidepanel -> service worker | Check whitelist status (Bearer auth, 403 differentiated via `handle403`) |
+| `CLOSER_ADD` | sidepanel -> service worker | Add contact to whitelist (Bearer auth, optimistic toggle) |
+| `CLOSER_REMOVE` | sidepanel -> service worker | Remove from whitelist (Bearer auth, optimistic toggle) |
+| `CLOSER_ELIGIBLE` | sidepanel -> service worker | Check if contact's assigned closer (`userId`) is in `allowed_closer_ids` — determines off vs disabled state |
 | `COACH_CHAT_SEND` | sidepanel -> service worker | Send coach message |
 | `SCORE_CONVERSATION` | sidepanel -> service worker | Score conversation |
 
@@ -147,6 +151,8 @@ No conversation data is persisted locally. Sidepanel reload loses all state.
 
 ### 2.5 Contact Switch Detection
 
+<!-- Updated 2026-03-09: B3 added 5-state eligibility flow with switchId guards -->
+
 ```
 Revio SPA navigation
         │
@@ -160,7 +166,27 @@ Service worker: extract contactId from URL
 REVIO_CONTACT_CHANGED message to sidepanel
         │
         ▼
-Sidepanel: reset agent bar, re-scrape, re-check whitelist
+Sidepanel: setAgentBarState("loading"), capture switchId
+        │
+        ▼
+SCRAPE_PAGE → get contact data (incl. userId)
+        │
+        ▼
+CLOSER_CHECK (Bearer auth) → 403 differentiation
+        │
+        ├─ revoked key → hidden, clear key
+        ├─ no scope → hidden
+        ├─ whitelisted → on
+        └─ not whitelisted:
+                │
+                ▼
+        CLOSER_ELIGIBLE (userId) → rollout check
+                │
+                ├─ eligible → off (can toggle on)
+                └─ not eligible → disabled
+
+All callbacks guarded by switchId === closerContactId
+(prevents stale state on rapid contact navigation)
 ```
 
 ---
@@ -316,7 +342,7 @@ Worker queue
         │
         ▼
 CopilotClient → POST /suggest (smartrip)
-  - X-Copilot-Key header (shared key, legacy — closer-bot hasn't migrated to Bearer yet)
+  - X-Copilot-Key header (shared key, legacy — bot process hasn't migrated to per-rep Bearer)
   - 30s timeout
         │
         ▼
@@ -330,13 +356,18 @@ Human override detection:
 
 ### 4.3 Extension ↔ Closer-Bot Integration
 
-The extension manages the closer-bot whitelist but does not control reply behavior:
+<!-- Updated 2026-03-09: B3 switched to per-rep Bearer auth, added CLOSER_ELIGIBLE, 403 differentiation -->
 
-| Extension Action | API Call | Effect |
-|-----------------|----------|--------|
-| `CLOSER_CHECK` | `GET /api/allowed-inboxes/{contactId}` | Returns `{whitelisted: bool}` |
-| `CLOSER_ADD` | `POST /api/allowed-inboxes/{contactId}` | Adds contact to whitelist |
-| `CLOSER_REMOVE` | `DELETE /api/allowed-inboxes/{contactId}` | Removes from whitelist |
+The extension manages the closer-bot whitelist and checks operational rollout eligibility, but does not control reply behavior:
+
+| Extension Action | API Call | Auth | Effect |
+|-----------------|----------|------|--------|
+| `CLOSER_CHECK` | `GET /api/config/allowed-inboxes/{contactId}` | Bearer | Returns `{whitelisted: bool}`. 403 differentiated via `handle403`: revoked key → clear storage; no scope → hide agent bar. |
+| `CLOSER_ADD` | `POST /api/config/allowed-inboxes/{contactId}` | Bearer | Adds contact to whitelist. Optimistic UI — visual state changes before API response. |
+| `CLOSER_REMOVE` | `DELETE /api/config/allowed-inboxes/{contactId}` | Bearer | Removes from whitelist. Optimistic UI — reverts on failure. |
+| `CLOSER_ELIGIBLE` | `GET /api/config/allowed-closers/{userId}` | Bearer | Checks if contact's assigned closer is in `allowed_closer_ids`. Determines disabled vs off state. |
+
+**Dual auth on closer-bot backend:** Extension sends `Authorization: Bearer {key}` (per-rep). Admin Streamlit dashboard sends `X-API-Key` (static). Backend `verify_auth()` accepts both. Key must have `closer` scope to access these endpoints.
 
 ---
 
@@ -422,6 +453,10 @@ KB matches injected into LLM prompt
 │                              │ Bearer {key} ────┼──► Smartrip
 │                              │ (from storage)    │     │
 │                              │                   │     │
+│                              │ Bearer {key} ────┼──► Closer-bot API
+│                              │ (same key, closer │     │
+│                              │  scope required)  │     │
+│                              │                   │     │
 │                              │ Direct URLs ─────┼──► Chris's Backends
 │                              │ (no auth)         │     (known risk)
 │                              └───────────────────┘     │
@@ -451,10 +486,13 @@ KB matches injected into LLM prompt
 | Smartrip (backend legacy) | `X-Copilot-Key` header | Shared HMAC key — accepted by backend, no longer sent by extension |
 | Deeprip/Quickrip | None | N/A |
 | Coach/Score | None | N/A |
-| Closer-bot API | `X-API-Key` header | Static key in `config.js` (`CONFIG.CLOSER_API_KEY`) |
+<!-- Updated 2026-03-09: B3 switched closer-bot from static X-API-Key to per-rep Bearer -->
+| Closer-bot API (extension) | `Authorization: Bearer {key}` | Same per-rep key as smartrip (from `chrome.storage.local`). Key must have `closer` scope. |
+| Closer-bot API (admin dashboard) | `X-API-Key` header | Static key for Streamlit admin. Backend `verify_auth()` accepts both auth methods. |
 | Revio API | Cookie extraction (`token`, `XSRF-TOKEN`) | Browser session cookies |
 
-**Launch state:** Per-rep keys on smartrip only. Closer-bot API uses a static shared key (`CONFIG.CLOSER_API_KEY` in `config.js`, sent as `X-API-Key` header). Chris's backends have no auth (security through obscurity -- URLs are not public but are embedded in extension source). Auth helpers (`getStoredApiKey`, `clearRevokedKey`) are extracted to `background/auth.js` for testability, loaded via `importScripts` in service worker.
+<!-- Updated 2026-03-09: B3 unified auth — single per-rep key for both smartrip and closer-bot -->
+**Launch state:** Per-rep keys on smartrip and closer-bot. Single key per rep authenticates across both services — key scopes (`smartrip`, `closer`) control which APIs are accessible. `CLOSER_API_KEY` removed from `config.js`. Chris's backends have no auth (security through obscurity -- URLs are not public but are embedded in extension source). Auth helpers (`getStoredApiKey`, `clearRevokedKey`) are extracted to `background/auth.js` for testability, loaded via `importScripts` in service worker.
 
 **Post-launch:** Proxy all engines through smartrip (PRD Section 8.3). Extension only talks to GCR, which forwards authenticated requests to Railway/n8n. Single point of auth enforcement.
 
@@ -678,6 +716,9 @@ Benefits:
 | Remove ALFRED_KEY + Bearer | chat-ripper | ✅ Implemented (A3) | Per-rep Bearer auth on smartrip, closer-bot key to config, 403 auto-detection, onChanged listener. 5 tests. |
 | Restrict content scripts | chat-ripper | ✅ Implemented (B1) | 12 domain patterns replace `<all_urls>` in content_scripts and web_accessible_resources. `close.alfredloh.com` added to host_permissions. |
 | Analysis panel redesign | chat-ripper | ✅ Implemented (B2) | MATCH label (smartrip only), color-coded confidence, warning row, "Why this works" removed. Analysis helpers extracted to `sidepanel/helpers.js`. Service worker passes raw `match` float + `warning`/`warningFix`. 18 tests. |
+<!-- Updated 2026-03-09: B3 specs added -->
+| Insert warning toast | chat-ripper | ✅ Implemented (B3) | Non-blocking amber toast on Insert when closer-bot active. `shouldShowInsertWarning` guard + `INSERT_WARNING_MSG` in helpers.js. Auto-dismiss 4s. 8 tests. |
+| Extension toggle (closer Bearer auth) | chat-ripper + closer-bot | ✅ Implemented (B3) | Per-rep Bearer auth on closer API (replaces static `CLOSER_API_KEY`). 5-state agent bar, CLOSER_ELIGIBLE rollout check, optimistic toggle, switchId guards, handle403, prefers-reduced-motion. |
 | Pinecone v2→v3 fix | hackathon | Active | Fix stale index name in discovery pipeline |
 | Per-rep bot attribution | closer-bot | Post-launch | Bot calls attributed to activating rep |
 
@@ -698,6 +739,11 @@ Benefits:
 | Email channel blocking | Zero email training data, different API structure, different voice. Not worth the quality risk. | March 2026 |
 | Validation via POST /suggest | Reuses existing endpoint instead of dedicated /validate-key. 401/403 = bad key, any other status = key passed auth middleware. No backend changes needed. | March 2026 |
 | Gate routes through service worker | Side panel can't access CONFIG.SMARTRIP_API (loaded via importScripts in service worker only). Validation must route through message passing. | March 2026 |
-| Two-key split (smartrip vs closer-bot) | Smartrip uses per-rep dynamic keys from storage. Closer-bot uses a static shared key in config.js. Different backends, different auth models — collapsing them would be wrong. | March 2026 |
+| ~~Two-key split (smartrip vs closer-bot)~~ | ~~Smartrip uses per-rep dynamic keys from storage. Closer-bot uses a static shared key in config.js.~~ **Superseded by B3**: Single per-rep key authenticates both services. Key scopes (`smartrip`, `closer`) control access. `CLOSER_API_KEY` removed from `config.js`. | March 2026 |
 | Auth module extraction (auth.js) | `getStoredApiKey()` and `clearRevokedKey()` extracted for Vitest testability. CJS export via `typeof module` guard — `importScripts` ignores it, Vite recognizes it. | March 2026 |
 | `onChanged` listener for key revocation | Decouples gate display from error propagation. Content script drops `key_revoked` flag (limitation of `new Error(msg)` — only captures message string). Listener shows gate immediately regardless of which context cleared the key. | March 2026 |
+| Unified per-rep key for closer-bot (B3) | Single key per rep authenticates both smartrip and closer-bot. Scopes control access — no separate closer key. Simplifies extension (one key in storage), enables per-rep audit trail on closer-bot actions. Backend dual auth (`Bearer` for extension, `X-API-Key` for admin) preserves Streamlit access. | March 2026 |
+| 5-state agent bar (B3) | Binary active/inactive replaced with hidden/loading/disabled/off/on. Each state maps to a distinct business condition (no auth, checking, not rolled out, eligible-inactive, active). Prevents UI from showing toggle to reps who can't use it. | March 2026 |
+| Optimistic toggle (B3) | Agent bar visual state changes immediately on click, reverts on API failure. Chose optimistic over loading-state pattern because toggle latency (~200ms) is fast enough that loading spinner would be more jarring than the rare revert. | March 2026 |
+| `switchId` stale callback guards (B3) | Captured ID compared to current `closerContactId` in every async callback. Simpler than debouncing — no race conditions, no timing dependencies, works with any callback depth. | March 2026 |
+| `handle403` string-matching (B3) | Extension parses `body.detail` from FastAPI's HTTPException to differentiate revoked key from no-scope. Creates a cross-repo contract — documented with warning comments in both repos. Accepted fragility because the string is controlled by Alfie in both repos. | March 2026 |
