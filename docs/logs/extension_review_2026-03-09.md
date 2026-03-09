@@ -4,7 +4,7 @@ Review of the entire ChatRipper AI Chrome extension prior to CWS submission.
 
 **Verdict**: DENY — 7 actionable issues to address before submission.
 
-**Status**: 3 fixed (#1, #2, #6), 1 false positive (#7), 3 open (#3, #4, #5).
+**Status**: 3 fixed (#1, #2, #6), 1 false positive (#7), 3 deferred (#3, #4, #5). Low items resolved.
 
 ## Critical (2)
 
@@ -56,6 +56,6 @@ Review of the entire ChatRipper AI Chrome extension prior to CWS submission.
 
 ## Low (not blocking)
 
-- **`lastStreamRafId` dead code** — `sidepanel.js:920`. Unused variable. Cleanup.
-- **`*.gmail.com` dead host pattern** — `manifest.json:23`. Gmail is served from `mail.google.com`, not `*.gmail.com`.
-- **No `default_popup` in manifest** — `popup/` directory exists but no `default_popup` key. Harmless — popup opens via action click handler in service worker.
+- ~~**`lastStreamRafId` dead code**~~ — FIXED. Removed unused variable (commit 1a3120a).
+- ~~**`*.gmail.com` dead host pattern**~~ — FIXED. Removed from both `content_scripts` and `web_accessible_resources` (commit 1a3120a).
+- **No `default_popup` in manifest** — WONTFIX. Intentional — adding `default_popup` would prevent `chrome.action.onClicked` from firing, which opens the side panel on icon click.
