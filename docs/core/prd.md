@@ -255,7 +255,8 @@ All data transmitted over HTTPS.
 
 ### 6.3 Open Risk
 
-Chris's backends are a data privacy blind spot. Until confirmed, the privacy policy should state that conversation data is sent to third-party AI processing services for reply generation and may be temporarily logged.
+<!-- Updated 2026-03-09: B4 privacy policy now covers this — states third-party retention "not independently verified" -->
+Chris's backends are a data privacy blind spot. The published privacy policy (`https://martell-media.github.io/chat-ripper/privacy-policy.html`) addresses this by stating that conversation data is sent to third-party AI services and that their retention practices have not been independently verified. Confirming Chris's actual data handling remains a post-launch item.
 
 ---
 
@@ -550,7 +551,8 @@ Not realistic for a solo developer with a Chrome extension. Manual testing is th
 | Per-rep API keys on smartrip | Deployed |
 | First-run API key setup gate | Implemented |
 | Remove hardcoded ALFRED_KEY + wire Bearer auth | Implemented |
-| Privacy policy (CWS requirement) | **TODO** |
+<!-- Updated 2026-03-09: B4 implemented — pure HTML on GitHub Pages, no build step -->
+| Privacy policy (CWS requirement) | Implemented |
 | Restrict content_scripts to known domains | Implemented |
 | Smartrip analysis panel redesign (MATCH rename, color coding, warning row, remove duplication) | Implemented |
 <!-- Updated 2026-03-09: B3 scope expanded to include extension toggle + per-rep Bearer auth on closer API -->

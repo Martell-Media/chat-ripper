@@ -575,6 +575,8 @@ KB matches injected into LLM prompt
 | Component | Deployment | CI/CD |
 |-----------|-----------|-------|
 | Extension | CWS upload (.zip via `scripts/package.sh`) | GitHub Actions: lint (Biome) + test (Vitest) on push |
+<!-- Updated 2026-03-09: B4 added GitHub Pages for privacy policy -->
+| Privacy policy | GitHub Pages from `public/` via `actions/deploy-pages@v4` | GitHub Actions: triggers on `public/**` changes to master |
 | Smartrip | `make deploy` → `gcloud run deploy` | None |
 | Closer-bot | `docker-compose up` on VM | None |
 | Deeprip/Quickrip | Railway auto-deploy (Chris) | Unknown |
@@ -719,6 +721,8 @@ Benefits:
 <!-- Updated 2026-03-09: B3 specs added -->
 | Insert warning toast | chat-ripper | ✅ Implemented (B3) | Non-blocking amber toast on Insert when closer-bot active. `shouldShowInsertWarning` guard + `INSERT_WARNING_MSG` in helpers.js. Auto-dismiss 4s. 8 tests. |
 | Extension toggle (closer Bearer auth) | chat-ripper + closer-bot | ✅ Implemented (B3) | Per-rep Bearer auth on closer API (replaces static `CLOSER_API_KEY`). 5-state agent bar, CLOSER_ELIGIBLE rollout check, optimistic toggle, switchId guards, handle403, prefers-reduced-motion. |
+<!-- Updated 2026-03-09: B4 implemented -->
+| Privacy policy + GitHub Pages | chat-ripper | ✅ Implemented (B4) | Self-contained HTML in `public/`, deployed via GitHub Actions (`upload-pages-artifact` → `deploy-pages`). No build step, no Jekyll. Only `public/` published — private docs not exposed. URL: `https://martell-media.github.io/chat-ripper/privacy-policy.html`. |
 | Pinecone v2→v3 fix | hackathon | Active | Fix stale index name in discovery pipeline |
 | Per-rep bot attribution | closer-bot | Post-launch | Bot calls attributed to activating rep |
 
@@ -747,3 +751,5 @@ Benefits:
 | Optimistic toggle (B3) | Agent bar visual state changes immediately on click, reverts on API failure. Chose optimistic over loading-state pattern because toggle latency (~200ms) is fast enough that loading spinner would be more jarring than the rare revert. | March 2026 |
 | `switchId` stale callback guards (B3) | Captured ID compared to current `closerContactId` in every async callback. Simpler than debouncing — no race conditions, no timing dependencies, works with any callback depth. | March 2026 |
 | `handle403` string-matching (B3) | Extension parses `body.detail` from FastAPI's HTTPException to differentiate revoked key from no-scope. Creates a cross-repo contract — documented with warning comments in both repos. Accepted fragility because the string is controlled by Alfie in both repos. | March 2026 |
+| Pure HTML over Jekyll (B4) | Single static privacy policy page doesn't justify a build step, template language, or gem dependencies. Zero-dependency deployment — raw HTML served directly from `public/`. | March 2026 |
+| GitHub Actions over branch-based Pages (B4) | Branch-based Pages only supports `/` or `/docs` as source folder — not `/public`. Actions-based deployment via `upload-pages-artifact` gives full control over published directory. Only `public/` is deployed — no risk of exposing `docs/`, `tests/`, or extension source. | March 2026 |

@@ -289,36 +289,39 @@ These tasks have no dependencies on each other or on Track A. Work on them while
 
 ---
 
-### B4. Privacy Policy
+### B4. Privacy Policy ✅
 
 > **Repo**: chat-ripper
-> **File**: `docs/privacy-policy.md` (source), GitHub Pages serves it
-> **Effort**: 0.5 day
+> **Files**: `public/privacy-policy.html` (new), `public/index.html` (new), `.github/workflows/pages.yml` (new)
+> **Spec**: `docs/specs/privacy_policy_spec.md` (Approved)
+> **Effort**: 0.5 day (estimated) → 0.5 day (actual — spec took most of the time, implementation was straightforward)
 > **Depends on**: Nothing
 > **Blocks**: C1 (CWS requires privacy policy URL)
+> **Status**: **Implemented** — commit `6b20454`, URL live
 
-**Scope**: Draft privacy policy covering data collection, storage, processing, and third-party sharing. Host on GitHub Pages from this repo.
+**Original scope**: Draft privacy policy and host on GitHub Pages.
 
-**Content must cover**:
-- What data is collected (conversation text, contact info, Rocket Selling data)
-- How data flows (extension → backend APIs over HTTPS)
-- What's stored (smartrip: SQLite with contact_id, name, messages, suggestion; extension: settings only, no PII)
-- Third-party processing (Chris's Railway/n8n backends — unknown retention)
-- No data sold or shared externally
-- Data retention (smartrip: indefinite, no TTL currently; extension: in-memory only)
-- User rights (internal tool — contact Alfie for data requests)
-- PIPEDA considerations (Canadian data privacy — post-launch review flagged)
+**Actual scope**: Self-contained HTML privacy policy (no Jekyll, no build step) deployed via GitHub Actions from `public/` directory. Generic language throughout — no internal jargon (Revio, smartrip, closer-bot etc. replaced with "supported messaging platforms", "backend servers", "automation backend").
 
-**Deliverables**:
-- `docs/privacy-policy.md` — source document
-- GitHub Pages config to serve at a stable URL
-- Privacy policy URL for CWS submission
+**Implementation**:
+1. `public/privacy-policy.html` — 9-section privacy policy with inline CSS, data storage table (6 rows), honest retention language
+2. `public/index.html` — landing page linking to privacy policy
+3. `.github/workflows/pages.yml` — GitHub Actions deployment: `checkout@v4` → `upload-pages-artifact@v3` → `deploy-pages@v4`. Triggers on `public/**` changes only. `workflow_dispatch` fallback.
+4. GitHub Pages enabled via API (`build_type: workflow`) before push
+
+**Implementation discoveries**:
+- GitHub Pages branch-based deployment only supports `/` or `/docs` as source — not `/public`. Switched to Actions-based deployment per spec.
+- `gh api` required `alfred-mm` account (admin access), not `a-loh` (read-only).
+- Spec went through 4 review rounds addressing: `chrome.storage.local` is NOT encrypted (corrected to "browser-managed local storage"), third-party AI services use generic language (not named), and pure HTML chosen over Jekyll for zero-dependency simplicity.
 
 **Verification**:
-- [ ] Privacy policy accessible at GitHub Pages URL
-- [ ] Covers all data flows (smartrip, deeprip, quickrip, coach, score)
-- [ ] Accurate about what's stored vs in-memory
-- [ ] URL works and is stable
+- [x] Privacy policy accessible at `https://martell-media.github.io/chat-ripper/privacy-policy.html`
+- [x] Covers all CWS-required sections: data collection, usage, storage, third-party, contact
+- [x] Private docs NOT accessible (e.g., `/docs/core/prd` returns 404)
+- [x] No internal jargon (grep confirmed: zero matches for Revio, smartrip, closer-bot, etc.)
+- [x] Contact email correct (`alfred@danmartell.com`)
+- [x] All 36 existing tests still pass (`npm test`)
+- [x] GitHub Actions workflow completed successfully (run `22843547774`)
 
 ---
 
@@ -373,12 +376,12 @@ Day 3 (March 8):
            B4 privacy policy                   ⬜ 0.5 day
 
 Day 4 (March 9):
-  Track B: B4 privacy policy                   ⬜ In progress
-  C1: CWS submission                           ⬜ Depends on B4
+  Track B: B4 privacy policy                   ✅ Implemented (6b20454)
+  C1: CWS submission                           ⬜ Ready — all blockers resolved
   Final integration testing
 ```
 
-**Schedule notes**: All code tasks complete (A1-A3, B1-B3). B3 scope expanded from 0.25 day to ~1 day but completed on Day 3. Remaining: B4 (0.5 day) + C1 (0.5 day) = 1 day. Today is Day 4 — on track for same-day CWS submission if B4 is completed.
+**Schedule notes**: All launch tasks complete except C1 (CWS submission). B4 completed Day 4 as planned — spec took 4 review rounds but implementation was clean (3 files, one commit). All 9 code/doc tasks (A1-A3, B1-B4) done. Only C1 remains.
 
 ## Risk Register
 
@@ -418,7 +421,9 @@ Day 4 (March 9):
 | `sidepanel/sidepanel.html` | A2, B2 | ✅ (gate HTML + key button + helpers.js script) |
 | `sidepanel/sidepanel.css` | A2, B2, B3 | ✅ (gate + key button + warning row + tooltip + toast + agent-loading pulse + prefers-reduced-motion) |
 | `content/content.js` | B3 | ✅ (userId propagation from Revio contact) |
-| `docs/privacy-policy.md` | B4 (new) | ⬜ |
+| `public/privacy-policy.html` | B4 (new) | ✅ |
+| `public/index.html` | B4 (new) | ✅ |
+| `.github/workflows/pages.yml` | B4 (new) | ✅ |
 | `tests/mocks/chrome.js` | A2 | ✅ (added remove(), fixed noParameterAssign) |
 | `tests/unit/first-run-gate.test.js` | A2 (new) | ✅ |
 | `tests/unit/bearer-header.test.js` | A3 (new) | ✅ |
@@ -439,7 +444,27 @@ Day 4 (March 9):
 
 ## Change History
 
-### 2026-03-09 Update
+### 2026-03-09 Update (PM)
+
+**Evidence source**: Commit `6b20454` (B4 privacy policy + GitHub Pages)
+
+**Completed tasks**:
+- **B4**: Implemented — commit `6b20454`, 3 new files. Pure HTML privacy policy deployed to GitHub Pages via Actions workflow. Spec went through 4 review rounds. URL live at `https://martell-media.github.io/chat-ripper/privacy-policy.html`.
+- **All code/doc tasks complete** — A1-A3, B1-B4 done. Only C1 (CWS submission) remains.
+
+**Files added**:
+- `public/privacy-policy.html` — 9-section privacy policy (127 lines)
+- `public/index.html` — landing page (19 lines)
+- `.github/workflows/pages.yml` — GitHub Actions Pages deployment (31 lines)
+- `docs/specs/privacy_policy_spec.md` — B4 spec (272 lines, approved)
+
+**Schedule impact**:
+- 9 of 9 pre-submission tasks complete. Only C1 remains.
+- B4 completed Day 4 as planned (0.5 day estimate, 0.5 day actual).
+
+---
+
+### 2026-03-09 Update (AM)
 
 **Evidence source**: Commits `c66bbf7` (B3 toast), `902f470` (B3 toast fix), `b659e58` (A2 gate fix), `21a2b8d` (B3 extension toggle)
 
@@ -566,6 +591,7 @@ Day 4 (March 9):
 - B1 estimated 15 min, actual 15 min — accurate. Declarative manifest change, spec was straightforward.
 - B2 estimated 0.5 day, actual 0.5 day — accurate despite 3x file count expansion (2 → 6). Spec review caught the scope expansion early (service worker data layer, helpers extraction) before implementation started. Lesson: thorough spec review absorbs scope expansion into the estimate rather than causing rework.
 - B3 estimated 0.25 day, actual ~1 day — underestimated 4x. Original WBS described a simple toast; cross-repo spec review expanded scope to include Bearer auth migration, 5-state agent bar, and operational rollout. Lesson: tasks that span repo boundaries and require auth migration are categorically different from single-feature additions — they should be estimated as Medium/High from the start.
+- B4 estimated 0.5 day, actual 0.5 day — accurate. Spec required 4 review rounds (GitHub Pages `/public` limitation, chrome.storage.local encryption claim, generic language guidelines, pure HTML vs Jekyll decision) but implementation was clean — 3 files, one commit, first-try deployment.
 - Dev environment setup was unplanned (~0.5 day) — should have been a WBS task
 
 ### Technical Decisions
@@ -580,3 +606,5 @@ Day 4 (March 9):
 - B3: `setAgentBarState` unified 5-state controller replaces separate `setAgentActive`/`setAgentDisabled` — single function, clear state machine
 - B3: `switchId` capture pattern prevents stale callbacks during rapid contact switches — simpler than debouncing, no race conditions
 - B3: Optimistic toggle pattern for responsive UX — immediate visual feedback, revert on failure rather than show loading state
+- B4: Pure HTML over Jekyll — single static page doesn't justify a build step, template language, or gem dependencies. Zero-dependency deployment.
+- B4: GitHub Actions over branch-based Pages — branch-based only supports `/` or `/docs` source, Actions allows `public/` with no private docs exposed
